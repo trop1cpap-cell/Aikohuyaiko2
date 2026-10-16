@@ -1337,13 +1337,23 @@ function addDishToGuest(dish, el) {
   if (currentTable === null || !currentGuest) return;
   const items = getTable(currentTable).guests[currentGuest];
   if (!items) return;
-  const existing = items.find(i => i.name === dish.name && i.price === dish.price);
 
-  if (existing) {
-    if (existing.served) { vibrate([30,40,30]); showSyncStatus('Позиция уже подана'); return; }
-    if (!canEditItem(existing)) { vibrate([30,40,30]); showSyncStatus('Чужая позиция'); return; }
-    existing.qty += 1;
+  // Ищем НЕ поданную позицию с таким же названием и ценой
+  const editable = items.find(i =>
+    i.name === dish.name &&
+    i.price === dish.price &&
+    i.served !== true &&
+    canEditItem(i)
+  );
+
+  if (editable) {
+    // Есть открытая позиция — просто увеличиваем количество
+    editable.qty += 1;
+    vibrate(15);
+    showSyncStatus('Добавлено: ' + dish.name);
   } else {
+    // Нет открытой позиции — создаём НОВУЮ строку
+    // (даже если такая же позиция есть, но помечена как "Подано")
     items.push({
       name: dish.name,
       price: dish.price,
@@ -1352,10 +1362,15 @@ function addDishToGuest(dish, el) {
       addedBy: userName,
       served: false,
     });
+    vibrate(15);
+    showSyncStatus('Добавлено: ' + dish.name);
   }
-  vibrate(15);
+
   saveAll();
-  if (el) { el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 250); }
+  if (el) {
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 250);
+  }
   renderOrderScreen();
 }
 
