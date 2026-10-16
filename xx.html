@@ -1,0 +1,2148 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1a1c">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Официант — ПО БАРАМ</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --primary: #c9b98a;
+    --primary-dark: #a89a72;
+    --primary-soft: #2e2a22;
+    --accent: #7eb6b1;
+    --bg: #16161a;
+    --bg-2: #1c1c20;
+    --card: #202024;
+    --card-2: #26262b;
+    --text: #d8d6d2;
+    --text-strong: #ece9e4;
+    --muted: #8a8884;
+    --danger: #b85c58;
+    --success: #7ba57b;
+    --warn: #c8955c;
+    --border: #2e2e34;
+    --vip: linear-gradient(135deg,#2b2620,#3a332a);
+    --bar: linear-gradient(135deg,#1e2a2c,#253a3e);
+    --busy: #242428;
+  }
+  body {
+    margin: 0; font-family: 'Roboto', -apple-system, sans-serif;
+    background: var(--bg); color: var(--text);
+    padding-bottom: 100px; font-size: 16px; overscroll-behavior: none;
+  }
+  header {
+    background: #14141a; color: var(--text-strong);
+    padding: 14px 16px;
+    position: sticky; top: 0; z-index: 10;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 2px 10px rgba(0,0,0,.5);
+    display: flex; justify-content: space-between; align-items: center;
+    min-height: 56px; gap: 8px;
+  }
+  header h1 {
+    margin: 0; font-size: 16px; font-weight: 500; flex: 1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    text-align: center; letter-spacing: .3px; color: var(--text-strong);
+  }
+  header h1 .elapsed {
+    color: var(--primary);
+    font-weight: 500;
+    font-size: 14px;
+  }
+  header button {
+    background: rgba(255,255,255,.05); color: var(--text-strong);
+    border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; font-size: 14px; font-weight: 500;
+    cursor: pointer; white-space: nowrap;
+    transition: background .15s, border-color .15s;
+  }
+  header button:active { background: rgba(255,255,255,.1); border-color: var(--primary); }
+  .user-badge {
+    font-size: 11px; background: rgba(201,185,138,.08); color: var(--primary);
+    padding: 4px 9px; border-radius: 10px;
+    border: 1px solid rgba(201,185,138,.18);
+    font-weight: 500; letter-spacing: .2px;
+  }
+
+  .tables {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 12px; padding: 14px;
+  }
+  .table-btn {
+    background: var(--card); border-radius: 12px; padding: 16px 6px 14px;
+    text-align: center; font-size: 16px; font-weight: 500;
+    cursor: pointer; position: relative;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,.3);
+    transition: box-shadow .15s, transform .1s, border-color .15s, background .15s;
+    user-select: none; color: var(--text-strong);
+  }
+  .table-btn:active { transform: scale(.98); border-color: var(--primary); background: var(--card-2); }
+  .table-btn.busy { background: var(--busy); border-color: rgba(201,185,138,.25); }
+  .table-btn.vip { background: var(--vip); border-color: rgba(201,185,138,.25); }
+  .table-btn.vip.busy { background: linear-gradient(135deg,#3a332a,#4a4032); }
+  .table-btn.bar { background: var(--bar); border-color: rgba(126,182,177,.2); }
+  .table-btn.bar.busy { background: linear-gradient(135deg,#253a3e,#2d4a4e); }
+  .table-btn .sum { display: block; font-size: 12px; color: var(--primary); margin-top: 4px; font-weight: 600; }
+  .table-btn .served-by {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 3px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 4px;
+    letter-spacing: .2px;
+  }
+
+  .table-btn .badges-row {
+    display: flex; gap: 4px; justify-content: center;
+    margin-top: 5px; flex-wrap: wrap;
+  }
+  .table-btn .badge-served,
+  .table-btn .badge-pending {
+    font-size: 10px;
+    border-radius: 8px;
+    padding: 2px 7px;
+    font-weight: 700;
+    letter-spacing: .2px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    line-height: 1.2;
+  }
+  .table-btn .badge-served {
+    background: rgba(123,165,123,.15);
+    color: var(--success);
+    border: 1px solid rgba(123,165,123,.35);
+  }
+  .table-btn .badge-pending {
+    background: rgba(200,149,92,.15);
+    color: var(--warn);
+    border: 1px solid rgba(200,149,92,.4);
+  }
+
+  .panel { display: none; padding: 0 14px; }
+  .panel.show { display: block; }
+
+  .guests-tabs {
+    display: flex; gap: 6px; overflow-x: auto;
+    padding: 10px 0 4px; margin-bottom: 6px; scrollbar-width: none;
+  }
+  .guests-tabs::-webkit-scrollbar { display: none; }
+  .guest-tab {
+    background: var(--card); border: 1px solid var(--border);
+    padding: 8px 14px; border-radius: 20px;
+    font-size: 14px; font-weight: 500; white-space: nowrap;
+    cursor: pointer; color: var(--text);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .guest-tab:active { background: var(--card-2); }
+  .guest-tab.active {
+    background: var(--card-2); color: var(--primary);
+    border-color: rgba(201,185,138,.4); font-weight: 600;
+  }
+  .guest-tab .g-sum { font-size: 12px; opacity: .7; }
+  .guest-tab .g-del {
+    background: rgba(255,255,255,.06); border: 0; border-radius: 50%;
+    width: 20px; height: 20px; font-size: 12px; line-height: 1;
+    cursor: pointer; color: inherit; padding: 0;
+  }
+  .guest-tab.active .g-del { background: rgba(255,255,255,.1); }
+
+  .add-guest-btn {
+    background: transparent; border: 1px dashed var(--border);
+    padding: 8px 14px; border-radius: 20px;
+    font-size: 14px; color: var(--muted);
+    cursor: pointer; white-space: nowrap;
+  }
+  .add-guest-btn:active { border-color: var(--primary); color: var(--primary); }
+
+  .order-item {
+    background: var(--card); border-radius: 12px;
+    padding: 12px 12px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid var(--border);
+    transition: opacity .2s, background .2s, border-color .2s;
+  }
+  .order-item.served {
+    background: var(--card-2);
+    border-color: rgba(123,165,123,.25);
+    opacity: .75;
+  }
+  .order-item.served .name {
+    text-decoration: line-through;
+    text-decoration-color: rgba(123,165,123,.6);
+    text-decoration-thickness: 1.5px;
+    color: var(--muted);
+  }
+  .order-item.served .sub { color: #6a6a6a; }
+  .order-item .info { flex: 1; min-width: 0; }
+  .order-item .name { font-weight: 500; word-wrap: break-word; color: var(--text-strong); }
+  .order-item .sub { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  .order-item .price { font-weight: 600; white-space: nowrap; font-size: 15px; color: var(--primary); }
+  .order-item .controls {
+    display: flex; align-items: center; gap: 2px;
+    background: var(--card-2); border-radius: 8px; padding: 2px;
+    border: 1px solid var(--border);
+  }
+  .order-item .controls button {
+    background: transparent; border: 0;
+    width: 32px; height: 32px; border-radius: 6px;
+    font-size: 18px; font-weight: 500; cursor: pointer;
+    color: var(--primary);
+  }
+  .order-item .controls button:active { background: rgba(201,185,138,.1); }
+  .order-item .qty { min-width: 24px; text-align: center; font-weight: 600; }
+  .order-item .check-btn {
+    background: transparent; border: 1.5px solid var(--border);
+    border-radius: 50%; width: 34px; height: 34px;
+    font-size: 15px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted); flex-shrink: 0;
+  }
+  .order-item .check-btn:active { background: rgba(255,255,255,.05); }
+  .order-item .check-btn.checked {
+    background: rgba(123,165,123,.15);
+    color: var(--success);
+    border-color: var(--success);
+  }
+  .order-item .check-btn:disabled { opacity: .3; cursor: not-allowed; }
+
+  .order-item .comment-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 34px; height: 34px;
+    font-size: 15px;
+    cursor: pointer;
+    color: var(--muted);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .order-item .comment-btn:active { background: rgba(255,255,255,.05); }
+  .order-item .comment-btn.has-comment {
+    color: var(--primary);
+    border-color: rgba(201,185,138,.4);
+    background: rgba(201,185,138,.08);
+  }
+
+  .order-item .comment-line {
+    color: var(--primary);
+    font-size: 12px;
+    margin-top: 4px;
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    word-wrap: break-word;
+  }
+  .order-item .comment-line::before {
+    content: '💬';
+    font-style: normal;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  .order-item.served .comment-line { color: var(--muted); }
+
+  .order-item .lock-badge {
+    font-size: 10px; color: var(--muted);
+    border: 1px solid var(--border); background: var(--card-2);
+    padding: 4px 8px; border-radius: 6px; white-space: nowrap; letter-spacing: .2px;
+  }
+
+  .empty { text-align: center; color: var(--muted); padding: 30px 0; font-size: 15px; }
+
+  .totals {
+    background: var(--card); border-radius: 12px; padding: 14px 16px;
+    margin: 8px 0 12px; border: 1px solid var(--border);
+  }
+  .totals .row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 15px; color: var(--text); }
+  .totals .row.meta {
+    font-size: 13px;
+    color: var(--muted);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 6px;
+  }
+  .totals .row.meta span:last-child { color: var(--primary); }
+  .totals .row.big {
+    font-size: 20px; font-weight: 600;
+    border-top: 1px solid var(--border); margin-top: 8px; padding-top: 10px;
+    color: var(--text-strong);
+  }
+  .totals .row.big span:last-child { color: var(--primary); font-weight: 700; }
+
+  .actions { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .actions button {
+    flex: 1; min-width: 120px;
+    padding: 12px; border: 0; border-radius: 10px;
+    font-size: 15px; font-weight: 500; cursor: pointer;
+    letter-spacing: .2px;
+  }
+  .btn-primary { background: var(--primary); color: #16161a; font-weight: 600; }
+  .btn-primary:active { background: var(--primary-dark); }
+  .btn-success { background: rgba(123,165,123,.15); color: var(--success); border: 1px solid rgba(123,165,123,.3); }
+  .btn-success:active { background: rgba(123,165,123,.25); }
+  .btn-danger { background: rgba(184,92,88,.12); color: var(--danger); border: 1px solid rgba(184,92,88,.3); }
+  .btn-danger:active { background: rgba(184,92,88,.22); }
+  .btn-warn { background: rgba(200,149,92,.12); color: var(--warn); border: 1px solid rgba(200,149,92,.3); }
+  .btn-warn:active { background: rgba(200,149,92,.22); }
+  .btn-ghost { background: var(--card-2); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:active { background: var(--border); }
+
+  .modal-back {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.65); z-index: 100;
+    justify-content: center; align-items: flex-end;
+    backdrop-filter: blur(6px);
+  }
+  .modal-back.show { display: flex; }
+
+  .modal {
+    background: var(--bg-2); width: 100%; max-height: 90vh;
+    border-radius: 18px 18px 0 0;
+    padding: 22px 20px calc(20px + env(safe-area-inset-bottom));
+    overflow-y: auto; animation: slideUp .25s ease-out;
+    border-top: 1px solid var(--border);
+  }
+  @keyframes slideUp { from { transform: translateY(100%);} to {transform: translateY(0);} }
+  .modal h2 { margin: 0 0 16px; font-size: 18px; color: var(--text-strong); font-weight: 600; }
+  .modal pre {
+    background: var(--card); border-radius: 10px; padding: 14px;
+    font-family: 'Roboto Mono', monospace; font-size: 13px;
+    white-space: pre-wrap; word-wrap: break-word; margin: 0 0 14px;
+    color: var(--text); border: 1px solid var(--border); line-height: 1.5;
+  }
+  .modal .row { display: flex; gap: 8px; margin-top: 8px; }
+  .modal .row button {
+    flex: 1; padding: 12px; border: 0; border-radius: 10px;
+    font-size: 15px; font-weight: 500; cursor: pointer;
+  }
+  .modal .row .copy { background: var(--primary); color: #16161a; font-weight: 600; }
+  .modal .row .share { background: rgba(126,182,177,.15); color: var(--accent); border: 1px solid rgba(126,182,177,.3); }
+  .modal .row .close { background: var(--card-2); color: var(--text); border: 1px solid var(--border); }
+  .modal .row .danger { background: rgba(184,92,88,.15); color: var(--danger); border: 1px solid rgba(184,92,88,.3); }
+
+  .search-wrap { position: relative; padding: 0 0 8px; }
+  .search-input {
+    width: 100%; padding: 12px 14px;
+    border: 1px solid var(--border); border-radius: 10px;
+    font-size: 16px; font-family: inherit;
+    background: var(--card); outline: none;
+    color: var(--text-strong); -webkit-appearance: none;
+    transition: border-color .15s;
+  }
+  .search-input::placeholder { color: var(--muted); }
+  .search-input:focus { border-color: var(--primary); }
+  .search-clear {
+    position: absolute; right: 8px; top: 50%;
+    transform: translateY(-50%);
+    background: var(--card-2); border: 0; border-radius: 50%;
+    width: 26px; height: 26px; font-size: 16px; line-height: 1;
+    cursor: pointer; color: var(--muted);
+  }
+  .search-info { font-size: 12px; color: var(--muted); margin: -4px 0 6px; padding-left: 4px; }
+
+  .cat-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0 10px; scrollbar-width: none; }
+  .cat-tabs::-webkit-scrollbar { display: none; }
+  .cat-tab {
+    background: var(--card); border: 1px solid var(--border);
+    padding: 8px 14px; border-radius: 20px;
+    font-size: 14px; font-weight: 500;
+    white-space: nowrap; cursor: pointer; color: var(--text);
+  }
+  .cat-tab:active { background: var(--card-2); }
+  .cat-tab.active {
+    background: var(--card-2); color: var(--primary);
+    border-color: rgba(201,185,138,.4); font-weight: 600;
+  }
+  .cat-tab.special { background: var(--vip); color: var(--primary); border-color: rgba(201,185,138,.2); }
+  .cat-tab.special.active {
+    background: linear-gradient(135deg,#3a332a,#4a4032);
+    color: var(--primary);
+    border-color: rgba(201,185,138,.5);
+  }
+
+  .menu-grid { display: grid; gap: 8px; }
+  .menu-item {
+    background: var(--card); border-radius: 12px; padding: 14px;
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; border: 1px solid var(--border);
+    user-select: none;
+  }
+  .menu-item:active { background: var(--card-2); border-color: rgba(201,185,138,.3); }
+  .menu-item.flash { background: rgba(123,165,123,.1); border-color: rgba(123,165,123,.4); }
+  .menu-item.special { background: var(--vip); border-color: rgba(201,185,138,.2); }
+  .menu-item.special .mi-price { color: var(--primary); }
+  .menu-item .mi-info { flex: 1; min-width: 0; }
+  .menu-item .mi-name { font-weight: 500; color: var(--text-strong); }
+  .menu-item .mi-desc { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .menu-item .mi-cat { font-size: 11px; color: var(--primary); margin-top: 3px; font-weight: 500; opacity: .8; }
+  .menu-item .mi-price { font-weight: 600; color: var(--primary); white-space: nowrap; margin-left: 10px; font-size: 15px; }
+
+  .shift-summary {
+    background: var(--card); color: var(--text);
+    padding: 20px; border-radius: 14px;
+    margin-bottom: 14px; border: 1px solid var(--border);
+  }
+  .shift-summary .lbl { color: var(--muted); font-size: 12px; margin-bottom: 2px; letter-spacing: .3px; text-transform: uppercase; }
+  .shift-summary .val { font-size: 26px; font-weight: 600; margin-bottom: 14px; color: var(--primary); }
+  .shift-summary .val:last-child { margin-bottom: 0; }
+
+  .shift-row {
+    background: var(--card); border-radius: 10px; padding: 12px 14px;
+    margin-bottom: 8px; border: 1px solid var(--border);
+  }
+  .shift-row .sr-head {
+    display: flex; justify-content: space-between; font-weight: 500;
+    margin-bottom: 4px; color: var(--text-strong);
+  }
+  .shift-row .sr-head span:last-child { color: var(--primary); font-weight: 600; }
+  .shift-row .sr-sub { font-size: 13px; color: var(--muted); }
+
+  .shift-row.clickable {
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+    position: relative;
+    padding-right: 32px;
+  }
+  .shift-row.clickable:active {
+    background: var(--card-2);
+    border-color: rgba(201,185,138,.3);
+  }
+  .shift-row.clickable::after {
+    content: '›';
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--primary);
+    font-size: 22px;
+    opacity: .5;
+    font-weight: 300;
+  }
+
+  /* Стили для деталей закрытого стола */
+  .closed-meta {
+    font-size: 13px;
+    color: var(--muted);
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+    line-height: 1.6;
+  }
+  .closed-guest-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--primary);
+    margin: 14px 0 8px;
+    letter-spacing: .3px;
+  }
+  .closed-item {
+    background: var(--card);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    border: 1px solid var(--border);
+  }
+  .closed-item-name {
+    font-weight: 500;
+    color: var(--text-strong);
+    font-size: 15px;
+  }
+  .closed-item-sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 3px;
+  }
+  .closed-item-sub b { color: var(--primary); font-weight: 600; }
+  .closed-served {
+    color: var(--success);
+    font-size: 13px;
+    margin-left: 4px;
+  }
+  .closed-comment {
+    color: var(--primary);
+    font-size: 12px;
+    margin-top: 4px;
+    font-style: italic;
+  }
+  .closed-guest-total {
+    text-align: right;
+    font-size: 13px;
+    color: var(--text);
+    padding: 4px 4px 8px;
+  }
+  .closed-guest-total b { color: var(--primary); font-weight: 600; }
+  .closed-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 4px 4px;
+    margin-top: 10px;
+    border-top: 1px solid var(--border);
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--text-strong);
+  }
+  .closed-total span:last-child {
+    color: var(--primary);
+    font-size: 22px;
+  }
+
+  .role-select { text-align: center; padding: 40px 20px; }
+  .role-select h2 { margin-bottom: 6px; color: var(--text-strong); font-size: 24px; font-weight: 500; letter-spacing: .5px; }
+  .role-select .brand-sub { color: var(--primary); font-size: 13px; margin-bottom: 28px; letter-spacing: 3px; font-weight: 500; }
+  .role-btn {
+    display: block; width: 100%; max-width: 300px;
+    margin: 10px auto; padding: 16px;
+    border: 1px solid var(--border); border-radius: 12px;
+    background: var(--card); color: var(--text-strong);
+    font-size: 16px; font-weight: 500; cursor: pointer; letter-spacing: .3px;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .role-btn:active { background: var(--card-2); border-color: var(--primary); color: var(--primary); }
+  .role-btn.selected { background: var(--card-2); color: var(--primary); border-color: var(--primary); }
+  .role-hint { margin-top: 24px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+  .sync-status {
+    position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%);
+    background: rgba(48,48,52,.95); color: var(--text-strong);
+    padding: 8px 16px; border-radius: 20px;
+    font-size: 12px; font-weight: 500; z-index: 500;
+    opacity: 0; transition: opacity .3s; pointer-events: none;
+    border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,.5);
+  }
+  .sync-status.show { opacity: 1; }
+
+  .item-status {
+    display: inline-block; font-size: 10px;
+    padding: 2px 7px; border-radius: 6px;
+    margin-left: 6px; font-weight: 600;
+    vertical-align: middle; letter-spacing: .3px;
+  }
+  .item-status.pending { background: rgba(200,149,92,.1); color: var(--warn); border: 1px solid rgba(200,149,92,.25); }
+  .item-status.served { background: rgba(123,165,123,.1); color: var(--success); border: 1px solid rgba(123,165,123,.25); }
+</style>
+</head>
+<body>
+
+<!-- ================= ЭКРАН ВЫБОРА РОЛИ ================= -->
+<div id="roleView" class="role-select">
+  <h2>ПО БАРАМ</h2>
+  <div class="brand-sub">KARAOKE • BAR</div>
+  <p style="color:#8a8884;margin-bottom:24px;font-size:14px;">Выберите вашу роль — потом сможете сменить её кнопкой 🚪 в шапке.</p>
+  <button class="role-btn" onclick="setRole('Официант', event)">Официант</button>
+  <button class="role-btn" onclick="setRole('Бармен', event)">Бармен</button>
+  <button class="role-btn" onclick="setRole('Администратор', event)">Администратор</button>
+  <p class="role-hint">Имя вводится вручную — не подтягивается из Telegram</p>
+</div>
+
+<!-- ================= ЭКРАН ВВОДА ИМЕНИ ================= -->
+<div id="nameView" class="role-select" style="display:none">
+  <h2>Как тебя зовут?</h2>
+  <div class="brand-sub" id="nameRoleLabel">на этой смене</div>
+  <p style="color:#8a8884;margin-bottom:24px;font-size:14px;">
+    Имя будет видно другим сотрудникам на карточках столов и в отчёте.
+  </p>
+  <div style="max-width:300px;margin:0 auto;">
+    <input type="text" id="userNameInput" class="search-input"
+           placeholder="Например: Иван"
+           maxlength="20" autocomplete="off"
+           onkeydown="if(event.key==='Enter') confirmName()">
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      <button class="role-btn" style="margin:0;flex:1;" onclick="backToRole()">← Назад</button>
+      <button class="role-btn" style="margin:0;flex:1;background:var(--primary);color:#16161a;border-color:var(--primary);"
+              onclick="confirmName()">Готово</button>
+    </div>
+  </div>
+</div>
+
+<header id="mainHeader" style="display:none">
+  <button id="backBtn" style="display:none" onclick="goBack()">←</button>
+  <h1 id="title">Столы</h1>
+  <div style="display:flex;gap:6px;align-items:center;">
+    <span class="user-badge" id="userBadge"></span>
+    <button onclick="openShiftReport()">📊</button>
+    <button onclick="confirmLogout()" title="Выйти">🚪</button>
+  </div>
+</header>
+
+<div id="tablesView" class="tables" style="display:none"></div>
+
+<div id="orderView" class="panel">
+  <div class="guests-tabs" id="guestsTabs"></div>
+  <div id="orderList"></div>
+  <div class="totals" id="totalsBox">
+    <div class="row meta"><span>Открыт:</span><span id="tableOpenedAt">—</span></div>
+    <div class="row"><span>Позиций у гостя:</span><span id="guestCount">0</span></div>
+    <div class="row"><span>Счёт гостя:</span><span id="guestSum">0 ₽</span></div>
+    <div class="row big"><span>Итого по столу:</span><span id="tableSum">0 ₽</span></div>
+  </div>
+  <div class="actions">
+    <button class="btn-primary" onclick="openMenu()">Меню</button>
+    <button class="btn-success" onclick="showBill(false)">Счёт гостя</button>
+  </div>
+  <div class="actions">
+    <button class="btn-ghost" onclick="showBill(true)">Счёт на стол</button>
+  </div>
+  <div class="actions">
+    <button class="btn-danger" onclick="confirmClearTable()">Очистить</button>
+    <button class="btn-warn" onclick="closeTableAndPay()">Оплатить</button>
+  </div>
+</div>
+
+<!-- ================= МОДАЛКА: МЕНЮ ================= -->
+<div class="modal-back" id="menuModal" onclick="if(event.target===this) closeModal('menuModal')">
+  <div class="modal">
+    <h2>Меню — <span id="menuGuestLabel"></span></h2>
+    <div class="search-wrap">
+      <input type="search" class="search-input" id="menuSearch"
+             placeholder="Поиск: картошка, босфорд, виски…"
+             autocomplete="off" oninput="onSearchInput()">
+      <button class="search-clear" id="searchClear" style="display:none" onclick="clearSearch()">×</button>
+    </div>
+    <div class="search-info" id="searchInfo"></div>
+    <div class="cat-tabs" id="catTabs"></div>
+    <div class="menu-grid" id="menuGrid"></div>
+    <div class="row">
+      <button class="close" onclick="closeModal('menuModal')">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= МОДАЛКА: КОММЕНТАРИЙ ================= -->
+<div class="modal-back" id="commentModal" onclick="if(event.target===this) closeCommentModal()">
+  <div class="modal">
+    <h2>Комментарий к позиции</h2>
+    <p id="commentDishName" style="margin:0 0 14px; color:#c9b98a; font-size:15px;"></p>
+    <input type="text" id="commentInput" class="search-input"
+           placeholder="Например: без льда, без лука, подать позже…"
+           maxlength="80" autocomplete="off"
+           onkeydown="if(event.key==='Enter') saveComment()">
+    <div class="row" style="margin-top:14px;">
+      <button class="close" onclick="closeCommentModal()">Отмена</button>
+      <button class="copy" onclick="saveComment()">Сохранить</button>
+    </div>
+    <div class="row" id="commentDeleteRow" style="display:none;">
+      <button class="danger" onclick="deleteComment()">Удалить комментарий</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= МОДАЛКА: СЧЁТ ================= -->
+<div class="modal-back" id="billModal" onclick="if(event.target===this) closeModal('billModal')">
+  <div class="modal">
+    <h2 id="billTitle">Счёт</h2>
+    <pre id="billText"></pre>
+    <div class="row">
+      <button class="copy" onclick="copyBill()">Копировать</button>
+      <button class="share" onclick="shareBill()">Отправить</button>
+    </div>
+    <div class="row">
+      <button class="close" onclick="closeModal('billModal')">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= МОДАЛКА: ПОДТВЕРЖДЕНИЕ ================= -->
+<div class="modal-back" id="confirmModal" onclick="if(event.target===this) closeModal('confirmModal')">
+  <div class="modal">
+    <h2 id="confirmTitle">Подтвердите действие</h2>
+    <p id="confirmText" style="margin:0 0 14px; color:#8a8884; line-height:1.5;"></p>
+    <div class="row">
+      <button class="close" onclick="closeModal('confirmModal')">Отмена</button>
+      <button class="danger" id="confirmOk">Да</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= МОДАЛКА: ОТЧЁТ ЗА СМЕНУ ================= -->
+<div class="modal-back" id="shiftModal" onclick="if(event.target===this) closeModal('shiftModal')">
+  <div class="modal">
+    <h2>Отчёт за смену</h2>
+    <div id="shiftContent"></div>
+    <div class="row">
+      <button class="copy" onclick="copyShiftReport()">Копировать</button>
+      <button class="close" onclick="closeModal('shiftModal')">Закрыть</button>
+    </div>
+    <div class="row">
+      <button class="danger" onclick="confirmResetShift()">Сбросить смену</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= МОДАЛКА: ДЕТАЛИ ЗАКРЫТОГО СТОЛА ================= -->
+<div class="modal-back" id="closedTableModal" onclick="if(event.target===this) closeModal('closedTableModal')">
+  <div class="modal">
+    <h2 id="closedTableTitle">Стол</h2>
+    <div id="closedTableContent"></div>
+    <div class="row">
+      <button class="copy" onclick="copyClosedTableBill()">Копировать</button>
+      <button class="close" onclick="closeModal('closedTableModal')">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<div class="sync-status" id="syncStatus">Синхронизация…</div>
+
+<script>
+/* ============================================================
+   >>> ВСТАВЬТЕ СВОИ КЛЮЧИ SUPABASE <<<
+   ============================================================ */
+const SUPABASE_URL = 'https://zmiihgogzwwqgkyjbaru.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_0Ia7df0vlfcYTDW5edw5Ng_5cmq_MrI';
+
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+let supabaseClient = null;
+if (typeof supabase !== 'undefined' && SUPABASE_URL.startsWith('http')) {
+  supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+const CLIENT_ID = 'c_' + Math.random().toString(36).slice(2) + '_' + Date.now();
+
+/* ============================================================
+   МЕНЮ
+   ============================================================ */
+const MENU = {
+  'Напитки': [
+    { name: 'Сок/Кола/Спрайт/Тоник 200мл', price: 200, tags: ['сок','кола','спрайт','тоник','газировка'] },
+    { name: 'Сок/Кола/Спрайт/Тоник 1л',    price: 500, tags: ['сок','кола','спрайт','тоник','литр'] },
+    { name: 'Вода негаз/газ 500мл',        price: 150, tags: ['вода','минералка'] },
+    { name: 'Чай в чайнике 900мл',         price: 550, tags: ['чай','чайник'] },
+    { name: 'Чай в кружке 250мл',          price: 200, tags: ['чай','кружка'] },
+    { name: 'Латте 250мл',                 price: 250, tags: ['латте','кофе'] },
+    { name: 'Капучино 200мл',              price: 250, tags: ['капучино','кофе'] },
+    { name: 'Американо 200мл',             price: 250, tags: ['американо','кофе'] },
+    { name: 'Эспрессо 50мл',               price: 200, tags: ['эспрессо','кофе'] },
+    { name: 'Энергетик 449мл',             price: 350, tags: ['энергетик','редбул'] },
+  ],
+  'Коктейли': [
+    { name: 'Лонг-Айленд',    price: 550, tags: ['лонг','айленд','long','island'] },
+    { name: 'Пино-Колада',    price: 450, tags: ['пино','колада','pina','colada'] },
+    { name: 'Апероль-Шприц',  price: 500, tags: ['апероль','шприц','aperol'] },
+    { name: 'Мартини-Тоник',  price: 450, tags: ['мартини','тоник','martini'] },
+    { name: 'Текила-Санрайз', price: 550, tags: ['текила','санрайз','tequila','sunrise'] },
+    { name: 'Мохито',         price: 450, tags: ['мохито','mojito'] },
+    { name: 'Голубая Лагуна', price: 450, tags: ['голубая','лагуна','blue','lagoon'] },
+    { name: 'Клубничный Дайкири', price: 450, tags: ['клубника','дайкири','daiquiri'] },
+    { name: 'Белый Шоколад',  price: 500, tags: ['белый','шоколад','white'] },
+    { name: 'Пьяная Ежевика', price: 450, tags: ['пьяная','ежевика'] },
+    { name: 'Текила Бум',     price: 600, tags: ['текила','бум','tequila','boom'] },
+    { name: 'Вишневая Девятка', price: 450, tags: ['вишня','девятка'] },
+    { name: 'Тундра',         price: 450, tags: ['тундра'] },
+    { name: 'Тропический',    price: 500, tags: ['тропический','tropic'] },
+    { name: 'Текила Бриз',    price: 500, tags: ['текила','бриз','tequila','breeze'] },
+    { name: 'Белый Русский',  price: 500, tags: ['белый','русский','white','russian'] },
+    { name: 'Джин-Тоник',     price: 450, tags: ['джин','тоник','gin','tonic'] },
+    { name: 'Виски-Кола',     price: 450, tags: ['виски','кола','whisky','cola'] },
+    { name: 'Коньяк-Кола',    price: 400, tags: ['коньяк','кола','cognac'] },
+    { name: 'Ром-Кола',       price: 450, tags: ['ром','кола','rum'] },
+    { name: 'Водка-Кола',     price: 400, tags: ['водка','кола','vodka'] },
+    { name: 'Отвертка',       price: 400, tags: ['отвертка','screwdriver'] },
+  ],
+  'Вино': [
+    { name: 'Алазанская Долина 750мл', price: 1600, desc: 'бел/красн полусл, Грузия', tags: ['алазанская','долина','грузия','вино'] },
+    { name: 'Шато Двуморье Савиньон Блан 750мл', price: 1600, desc: 'белое сухое', tags: ['шато','двуморье','савиньон','блан','sauvignon'] },
+    { name: 'Криспи 750мл',    price: 1600, desc: 'розовое полусухое', tags: ['криспи','розовое'] },
+    { name: 'Блэк Стоун 750мл', price: 1600, desc: 'красное сухое', tags: ['блэк','стоун','black','stone'] },
+    { name: 'Рислинг 750мл',   price: 1600, desc: 'белое полусухое', tags: ['рислинг','riesling'] },
+  ],
+  'Игристое': [
+    { name: 'Двуморье шато 750мл', price: 1400, desc: 'белое брют/полусл', tags: ['двуморье','шато','игристое'] },
+    { name: 'Премиум Премьер 750мл', price: 1600, desc: 'белое полусладкое', tags: ['премиум','премьер','premium','premier'] },
+    { name: 'Абрау-Дюрсо 750мл', price: 1600, desc: 'белое полусл/брют', tags: ['абрау','дюрсо','abray'] },
+    { name: 'Ди Каспико 750мл', price: 1800, desc: 'брют белое', tags: ['каспико','casco'] },
+    { name: 'Martini Fiero 50мл', price: 300, tags: ['мартини','фиеро','martini','fiero'] },
+    { name: 'Perlino Bianco 50мл', price: 300, tags: ['перлино','бьянко','perlino','bianco'] },
+  ],
+  'Виски': [
+    { name: 'Dunmor 50мл',         price: 250, tags: ['данмор','дунмор','dunmor'] },
+    { name: 'Blue Warrior 50мл',   price: 300, tags: ['блю','варриор','blue','warrior','болгария'] },
+    { name: 'The Generation 50мл', price: 300, tags: ['дженерейшн','generation','индия'] },
+    { name: 'Вильям Л. Пряный 50мл', price: 350, tags: ['вильям','пряный','william','spicy'] },
+    { name: 'Вильям Л. 50мл',      price: 350, tags: ['вильям','william'] },
+    { name: 'Стирсмен 50мл',       price: 300, tags: ['стирсмен','stirsman','бурбон'] },
+    { name: 'Джим Бим 50мл',       price: 400, tags: ['джим','бим','jim','beam','бурбон'] },
+    { name: 'Баллантайс 50мл',     price: 400, tags: ['баллантайс','ballantines'] },
+    { name: 'Джемесон 50мл',       price: 600, tags: ['джемесон','джемисон','jameson'] },
+  ],
+  'Коньяк': [
+    { name: 'Старейшина 50мл',     price: 300, tags: ['старейшина'] },
+    { name: 'Арарат 50мл',         price: 400, tags: ['арарат','ararat','армения'] },
+  ],
+  'Джин': [
+    { name: 'Барристер Драй 50мл', price: 300, tags: ['барристер','драй','barrister','dry'] },
+    { name: 'JJ Whitley 50мл',     price: 300, tags: ['уитли','витли','whitley'] },
+    { name: 'Bosford 50мл',        price: 400, tags: ['босфорд','босфор','bosford'] },
+  ],
+  'Ром': [
+    { name: 'Bucanero 50мл',       price: 300, tags: ['буканеро','bucanero'] },
+    { name: 'Bacardi Oak-T 50мл',  price: 300, tags: ['бакарди','bacardi','oak'] },
+    { name: 'Celenter 50мл',       price: 300, tags: ['целентер','селентер','celenter'] },
+  ],
+  'Текила': [
+    { name: 'Olmeca Silver 50мл',  price: 500, tags: ['олмека','olmeca','silver'] },
+  ],
+  'Водка': [
+    { name: 'Водка 50мл',          price: 150,  tags: ['водка','50','стопка','shot','vodka'] },
+    { name: 'Хорта 0.5',           price: 1500, tags: ['хорта','horta','серебро'] },
+    { name: 'Талка 0.5',           price: 1500, tags: ['талка','talka'] },
+    { name: 'Хаски 0.5',           price: 1500, tags: ['хаски','husky'] },
+    { name: 'Русский Стандарт 0.7', price: 1900, tags: ['русский','стандарт','russian','standard'] },
+  ],
+  'Шоты и пиво': [
+    { name: 'Б-52',        price: 450, tags: ['б52','b52','шот'] },
+    { name: 'Б-53',        price: 450, tags: ['б53','b53','шот'] },
+    { name: 'Егермейстер 50мл', price: 450, tags: ['егермейстер','егер','jagermeister','jager'] },
+    { name: 'Абсент 50мл', price: 450, tags: ['абсент','absinthe'] },
+    { name: 'Самбука 50мл',price: 450, tags: ['самбука','sambuca'] },
+    { name: 'Aperitivo 50мл', price: 350, tags: ['аперитиво','aperitivo'] },
+    { name: 'Трипл-Сек 50мл', price: 350, tags: ['трипл','сек','triple','sec'] },
+    { name: 'Сливочный ликер 50мл', price: 350, tags: ['сливочный','ликер','cream'] },
+    { name: 'Кофейный ликер 50мл',  price: 350, tags: ['кофейный','ликер','coffee'] },
+    { name: 'Марокканский мандарин 50мл', price: 350, tags: ['марокканский','мандарин'] },
+    { name: 'Персидский гранат 50мл',     price: 350, tags: ['персидский','гранат'] },
+    { name: 'Водка-энергетик 50мл',       price: 200, tags: ['водка','энергетик'] },
+    { name: 'Essa 0.5',           price: 350, tags: ['эсса','essa'] },
+    { name: "Chester's 0.5",      price: 350, tags: ['честерс','честер','chesters'] },
+    { name: 'Kozel 0.5',          price: 350, tags: ['козел','kozel'] },
+    { name: 'Efes 0.5',           price: 350, tags: ['эфес','efes'] },
+    { name: 'Старый Мельник 0.5', price: 350, tags: ['старый','мельник'] },
+    { name: 'Bud 0.44',           price: 350, tags: ['буд','bud','budweiser'] },
+    { name: 'Фисташки 100гр',     price: 400, tags: ['фисташки','орехи'] },
+    { name: 'Арахис 100гр',       price: 250, tags: ['арахис','орехи'] },
+  ],
+  'Настойки': [
+    { name: 'Сет «Давайте знакомиться» 5×25мл', price: 550, desc: 'Вишня, Брусница, Клюквенная, Смородина, Морошка', tags: ['сет','настойки','дегустация','25'] },
+    { name: 'Сет «Доремифасоль» 5×50мл',        price: 1000, desc: 'Те же 5 настоек', tags: ['сет','настойки','дегустация','50'] },
+    { name: 'Вишня Черноокая 50мл', price: 250, tags: ['вишня','черноокая'] },
+    { name: 'Брусница 50мл',        price: 250, tags: ['брусница','брусника'] },
+    { name: 'Клюквенная 50мл',      price: 250, tags: ['клюквенная','клюква'] },
+    { name: 'Смородиновый цвет 50мл', price: 250, tags: ['смородина','смородиновый'] },
+    { name: 'Морошка медовая 50мл',   price: 250, tags: ['морошка','медовая'] },
+  ],
+  'Салаты': [
+    { name: 'Цезарь с курицей 200гр',   price: 500, tags: ['цезарь','курица','caesar'] },
+    { name: 'Цезарь с креветками 200гр', price: 650, tags: ['цезарь','креветки','caesar','shrimp'] },
+    { name: 'Столичный 200гр',          price: 500, tags: ['столичный','оливье'] },
+    { name: 'Бахор 200гр',              price: 450, tags: ['бахор'] },
+    { name: 'Коктейль из ветчины и сыра 200гр', price: 500, tags: ['коктейль','ветчина','сыр'] },
+  ],
+  'Закуски': [
+    { name: 'Сельдь с/с с картофелем 250гр', price: 450, tags: ['сельдь','картофель'] },
+    { name: 'Брускетты с форелью 200гр',     price: 450, tags: ['брускетты','форель','bruschetta'] },
+    { name: 'Ассорти колбас 300гр',          price: 650, tags: ['ассорти','колбасы'] },
+    { name: 'Ассорти сыров 350гр',           price: 800, tags: ['ассорти','сыры','cheese'] },
+    { name: 'Лимон долька',                  price: 30,  tags: ['лимон','долька','lemon'] },
+    { name: 'Лайм долька',                   price: 30,  tags: ['лайм','долька','lime'] },
+  ],
+  'Горячее': [
+    { name: 'Курица в беконе 250гр',       price: 650, tags: ['курица','бекон'] },
+    { name: 'Свинина с овощами 250гр',     price: 650, tags: ['свинина','овощи'] },
+    { name: 'Бифштекс на гриле 300гр',     price: 600, tags: ['бифштекс','гриль','beef','steak'] },
+    { name: 'Курица под сыром 350гр',      price: 600, tags: ['курица','сыр'] },
+    { name: 'Картофельная бомбочка 250гр', price: 500, tags: ['картофель','бомбочка'] },
+  ],
+  'К пиву': [
+    { name: 'Пивная тарелка',       price: 1500, desc: 'фри, наггетсы, сырные палочки, колбаски, лук. кольца, 3 соуса', tags: ['пивная','тарелка','сет'] },
+    { name: 'Стрипсы куриные 5шт',  price: 500, tags: ['стрипсы','курица','strips'] },
+    { name: 'Сырные палочки 6шт',   price: 600, tags: ['сырные','палочки','cheese','sticks'] },
+    { name: 'Наггетсы 6шт',         price: 450, tags: ['наггетсы','nuggets'] },
+    { name: 'Креветки в панировке 7шт', price: 650, tags: ['креветки','панировка','shrimp'] },
+    { name: 'Гренки с чесноком 10шт',   price: 300, tags: ['гренки','чеснок'] },
+  ],
+  'Гарниры и соусы': [
+    { name: 'Картофель фри 150гр',          price: 300, tags: ['картошка','картофель','фри','fries'] },
+    { name: 'Картофель по-деревенски 150гр', price: 300, tags: ['картошка','картофель','деревенски'] },
+    { name: 'Картофельные слайсы 150гр',    price: 300, tags: ['картошка','картофель','слайсы'] },
+    { name: 'Кетчуп классический 50гр',     price: 60, tags: ['кетчуп','соус','ketchup'] },
+    { name: 'Кисло-сладкий соус 50гр',      price: 60, tags: ['кисло','сладкий','соус'] },
+    { name: 'Сырный соус 50гр',             price: 60, tags: ['сырный','соус','cheese'] },
+    { name: 'Барбекю 50гр',                 price: 60, tags: ['барбекю','соус','bbq'] },
+    { name: 'Чесночный соус 50гр',          price: 60, tags: ['чесночный','соус','garlic'] },
+    { name: 'Баффало острый 50гр',          price: 60, tags: ['баффало','острый','соус','buffalo'] },
+    { name: 'Сладкий чили 50гр',            price: 60, tags: ['сладкий','чили','соус','chili'] },
+    { name: 'Брусничный чили 50гр',         price: 60, tags: ['брусничный','чили','соус'] },
+    { name: 'Сливочно-чесночный 50гр',      price: 60, tags: ['сливочный','чесночный','соус'] },
+  ],
+  'Десерты': [
+    { name: 'Чизкейк клубничный',         price: 350, tags: ['чизкейк','клубника','cheesecake'] },
+    { name: 'Пирожное картошка',          price: 150, tags: ['пирожное','картошка'] },
+    { name: 'Пирожное торт Прага',        price: 300, tags: ['пирожное','прага','prague'] },
+    { name: 'Пирожное Красный бархат',    price: 300, tags: ['пирожное','красный','бархат','red','velvet'] },
+  ],
+  '⭐ Доп. услуги': [
+    { name: 'Песня вне очереди', price: 1000, desc: 'Караоке-услуга: ваш трек вне очереди', tags: ['песня','караоке','очередь'] },
+    { name: 'Кальян',            price: 1500, desc: 'Классический / фруктовый на выбор', tags: ['кальян','hookah'] },
+  ],
+};
+
+const SPECIAL_CATEGORIES = ['⭐ Доп. услуги'];
+const TABLE_IDS = [1,2,3,4,5,6,7,8,'VIP','Бар 1','Бар 2'];
+const STORAGE_KEY = 'waiter_orders_v13';
+const SHIFT_KEY   = 'waiter_shift_v13';
+const ROLE_KEY    = 'waiter_role_v13';
+const SHIFT_ROW_ID = -1;
+
+let orders   = {};
+let shift    = [];
+let currentTable = null;
+let currentGuest = null;
+let currentBillText = '';
+let currentClosedBillText = '';
+let currentCategory = Object.keys(MENU)[0];
+let userRole = null;
+let userName = '';
+let pendingRole = null;
+let searchQuery = '';
+let realtimeChannel = null;
+let pollTimer = null;
+let titleTimer = null;
+let commentEditIdx = null;
+
+/* ============================================================
+   СТЕК МОДАЛОК
+   ============================================================ */
+let modalZIndex = 100;
+const modalStack = [];
+
+function openModal(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (!modalStack.includes(id)) {
+    modalZIndex += 10;
+    el.style.zIndex = modalZIndex;
+    modalStack.push(id);
+  }
+  el.classList.add('show');
+}
+
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('show');
+  const idx = modalStack.indexOf(id);
+  if (idx !== -1) modalStack.splice(idx, 1);
+  if (modalStack.length === 0) modalZIndex = 100;
+}
+
+/* ============================================================
+   УТИЛИТЫ
+   ============================================================ */
+function fmt(n) { return n.toLocaleString('ru-RU') + ' ₽'; }
+
+function fmtElapsed(openedAt) {
+  if (!openedAt) return '';
+  const ms = Date.now() - openedAt;
+  const totalMin = Math.floor(ms / 60000);
+  if (totalMin < 1) return 'только что';
+  if (totalMin < 60) return totalMin + ' мин';
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (m === 0) return h + ' ч';
+  return h + ' ч ' + m + ' мин';
+}
+
+function fmtTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+}
+
+function tableLabel(id) {
+  if (id === 'VIP') return 'VIP';
+  if (id === 'Бар 1' || id === 'Бар 2') return id;
+  return 'Стол ' + id;
+}
+function isBarTable(id) { return id === 'Бар 1' || id === 'Бар 2'; }
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function vibrate(ms) { if (navigator.vibrate) navigator.vibrate(ms); }
+function tableIdToNum(id) { return TABLE_IDS.indexOf(id); }
+function numToTableId(num) { return TABLE_IDS[num]; }
+
+let syncTimer = null;
+function showSyncStatus(text) {
+  const el = document.getElementById('syncStatus');
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+/* ============================================================
+   ПРАВА
+   ============================================================ */
+function canEditItem(item) {
+  if (userRole === 'Администратор') return true;
+  if (!item.addedBy) return true;
+  return item.addedBy === userName;
+}
+function canToggleServed(item) {
+  if (userRole === 'Администратор') return true;
+  if (!item.addedBy) return true;
+  if (userRole === 'Официант') return true;
+  if (userRole === 'Бармен') return item.addedBy === userName;
+  return false;
+}
+
+/* ============================================================
+   SUPABASE: ЗАГРУЗКА
+   ============================================================ */
+async function loadAllFromServer() {
+  if (!supabaseClient) {
+    const savedOrders = localStorage.getItem(STORAGE_KEY);
+    const savedShift  = localStorage.getItem(SHIFT_KEY);
+    if (savedOrders) orders = JSON.parse(savedOrders);
+    if (savedShift)  shift  = JSON.parse(savedShift);
+    return;
+  }
+  try {
+    const { data, error } = await supabaseClient.from('orders').select('id, data, client_id');
+    if (error) throw error;
+
+    const newOrders = {};
+    (data || []).forEach(row => {
+      if (row.data && row.data._deleted === true) return;
+      if (row.id === SHIFT_ROW_ID) shift = row.data || [];
+      else {
+        const tableId = numToTableId(row.id);
+        if (tableId !== undefined) newOrders[tableId] = row.data;
+      }
+    });
+    orders = newOrders;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+    localStorage.setItem(SHIFT_KEY, JSON.stringify(shift));
+  } catch (e) {
+    console.error('Ошибка загрузки:', e);
+    showSyncStatus('Нет соединения');
+    const savedOrders = localStorage.getItem(STORAGE_KEY);
+    const savedShift  = localStorage.getItem(SHIFT_KEY);
+    if (savedOrders) orders = JSON.parse(savedOrders);
+    if (savedShift)  shift  = JSON.parse(savedShift);
+  }
+}
+
+/* ============================================================
+   SUPABASE: СОХРАНЕНИЕ
+   ============================================================ */
+async function saveTableToServer(tableId) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+  if (!supabaseClient) return;
+  const numId = tableIdToNum(tableId);
+  if (numId < 0) return;
+  try {
+    if (orders[tableId]) {
+      await supabaseClient.from('orders').upsert({
+        id: numId,
+        data: orders[tableId],
+        client_id: CLIENT_ID,
+      });
+    } else {
+      await supabaseClient.from('orders').upsert({
+        id: numId,
+        data: { _deleted: true, deletedAt: Date.now(), deletedBy: userName },
+        client_id: CLIENT_ID,
+      });
+    }
+  } catch (e) { console.error(e); showSyncStatus('Ошибка сохранения'); }
+}
+
+async function saveShiftToServer() {
+  localStorage.setItem(SHIFT_KEY, JSON.stringify(shift));
+  if (!supabaseClient) return;
+  try {
+    await supabaseClient.from('orders').upsert({
+      id: SHIFT_ROW_ID,
+      data: shift,
+      client_id: CLIENT_ID,
+    });
+  } catch (e) { console.error(e); }
+}
+
+async function saveAll() {
+  if (currentTable !== null) await saveTableToServer(currentTable);
+  else localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+}
+
+/* ============================================================
+   SUPABASE: REALTIME
+   ============================================================ */
+function subscribeToChanges() {
+  if (!supabaseClient) return;
+  realtimeChannel = supabaseClient
+    .channel('orders-changes')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'orders' },
+      (payload) => {
+        const row = payload.new || payload.old;
+        if (!row) return;
+        if (row.client_id === CLIENT_ID) return;
+
+        try {
+          if (row.id === SHIFT_ROW_ID) {
+            if (payload.eventType === 'DELETE') return;
+            shift = payload.new?.data || [];
+            localStorage.setItem(SHIFT_KEY, JSON.stringify(shift));
+            if (document.getElementById('shiftModal').classList.contains('show')) {
+              renderShiftReport();
+            }
+            return;
+          }
+
+          const tableId = numToTableId(row.id);
+          if (tableId === undefined) return;
+
+          const isDeleted = payload.eventType === 'DELETE'
+            || (payload.new?.data && payload.new.data._deleted === true);
+
+          if (isDeleted) {
+            delete orders[tableId];
+            if (currentTable === tableId) {
+              showSyncStatus('Стол закрыт другим сотрудником');
+              goBack();
+            }
+          } else if (payload.new) {
+            orders[tableId] = payload.new.data;
+          }
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+          renderTables();
+          if (currentTable === tableId && !isDeleted) renderOrderScreen();
+        } catch (e) { console.error('Ошибка Realtime:', e); }
+      })
+    .subscribe((status) => {
+      console.log('Realtime status:', status);
+    });
+}
+
+/* ============================================================
+   SUPABASE: РЕЗЕРВНЫЙ POLLING
+   ============================================================ */
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    if (!supabaseClient) return;
+    if (document.hidden) return;
+    try {
+      const { data, error } = await supabaseClient.from('orders').select('id, data');
+      if (error) return;
+
+      const freshOrders = {};
+      let freshShift = null;
+      (data || []).forEach(row => {
+        if (row.data && row.data._deleted === true) return;
+        if (row.id === SHIFT_ROW_ID) freshShift = row.data || [];
+        else {
+          const tableId = numToTableId(row.id);
+          if (tableId !== undefined) freshOrders[tableId] = row.data;
+        }
+      });
+
+      const oldKeys = Object.keys(orders).sort();
+      const newKeys = Object.keys(freshOrders).sort();
+      const keysChanged = oldKeys.join(',') !== newKeys.join(',');
+
+      let contentChanged = false;
+      for (const k of newKeys) {
+        if (JSON.stringify(orders[k]) !== JSON.stringify(freshOrders[k])) {
+          contentChanged = true; break;
+        }
+      }
+
+      if (keysChanged || contentChanged) {
+        orders = freshOrders;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+
+        if (currentTable !== null && !orders[currentTable]) {
+          showSyncStatus('Стол закрыт');
+          goBack();
+        } else {
+          renderTables();
+          if (currentTable !== null) renderOrderScreen();
+        }
+      }
+
+      if (freshShift && JSON.stringify(shift) !== JSON.stringify(freshShift)) {
+        shift = freshShift;
+        localStorage.setItem(SHIFT_KEY, JSON.stringify(shift));
+        if (document.getElementById('shiftModal').classList.contains('show')) {
+          renderShiftReport();
+        }
+      }
+    } catch (e) { /* тихо */ }
+  }, 5000);
+}
+
+/* ============================================================
+   РОЛЬ + ИМЯ
+   ============================================================ */
+function setRole(role, event) {
+  const btn = event?.target?.closest('.role-btn');
+  if (btn) btn.classList.add('selected');
+  pendingRole = role;
+
+  setTimeout(() => {
+    document.getElementById('roleView').style.display = 'none';
+    document.getElementById('nameRoleLabel').textContent = role;
+    document.getElementById('userNameInput').value = '';
+    document.getElementById('nameView').style.display = 'block';
+    setTimeout(() => document.getElementById('userNameInput').focus(), 100);
+  }, 120);
+}
+
+function backToRole() {
+  pendingRole = null;
+  document.getElementById('nameView').style.display = 'none';
+  document.getElementById('roleView').style.display = 'block';
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
+}
+
+function confirmName() {
+  const input = document.getElementById('userNameInput');
+  const name = (input.value || '').trim();
+  if (!name) {
+    input.style.borderColor = 'var(--danger)';
+    vibrate(30);
+    setTimeout(() => input.style.borderColor = '', 1200);
+    return;
+  }
+  if (!pendingRole) return;
+  applyRole(pendingRole, name);
+  pendingRole = null;
+}
+
+function applyRole(role, name) {
+  userRole = role;
+  userName = name;
+  document.getElementById('userBadge').textContent = `${userRole} • ${userName.split(' ')[0]}`;
+  document.getElementById('roleView').style.display = 'none';
+  document.getElementById('nameView').style.display = 'none';
+  document.getElementById('mainHeader').style.display = 'flex';
+  document.getElementById('tablesView').style.display = 'grid';
+
+  localStorage.setItem(ROLE_KEY, JSON.stringify({ role, name: userName }));
+  renderTables();
+}
+
+function loadRole() {
+  const raw = localStorage.getItem(ROLE_KEY);
+  if (!raw) return false;
+  try {
+    const saved = JSON.parse(raw);
+    if (saved?.role && saved?.name) {
+      userRole = saved.role;
+      userName = saved.name;
+      document.getElementById('userBadge').textContent = `${userRole} • ${userName.split(' ')[0]}`;
+      document.getElementById('roleView').style.display = 'none';
+      document.getElementById('nameView').style.display = 'none';
+      document.getElementById('mainHeader').style.display = 'flex';
+      document.getElementById('tablesView').style.display = 'grid';
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
+function confirmLogout() {
+  confirmAction('Выйти из аккаунта?',
+    'Вы вернётесь к экрану выбора роли. Данные не потеряются.',
+    () => {
+      localStorage.removeItem(ROLE_KEY);
+      userRole = null; userName = null; pendingRole = null;
+
+      document.getElementById('mainHeader').style.display = 'none';
+      document.getElementById('tablesView').style.display = 'none';
+      document.getElementById('orderView').classList.remove('show');
+      document.getElementById('backBtn').style.display = 'none';
+      document.getElementById('nameView').style.display = 'none';
+
+      document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
+      document.getElementById('roleView').style.display = 'block';
+    });
+}
+
+/* ============================================================
+   DATA HELPERS
+   ============================================================ */
+function getTable(id) {
+  if (!orders[id]) {
+    orders[id] = { guests: {}, openedAt: Date.now(), openedBy: userName };
+  }
+  if (orders[id] && !orders[id].openedBy && userName) {
+    orders[id].openedBy = userName;
+  }
+  return orders[id];
+}
+function guestTotal(id, guest) {
+  const items = (orders[id]?.guests?.[guest]) || [];
+  return items.reduce((s, it) => s + it.price * it.qty, 0);
+}
+function tableTotal(id) {
+  const g = orders[id]?.guests || {};
+  return Object.keys(g).reduce((s, k) => s + guestTotal(id, k), 0);
+}
+function tableItemCount(id) {
+  const g = orders[id]?.guests || {};
+  return Object.values(g).reduce((s, arr) => s + arr.reduce((a,it)=>a+it.qty,0), 0);
+}
+function tableServedCount(id) {
+  const g = orders[id]?.guests || {};
+  let n = 0;
+  Object.values(g).forEach(arr => {
+    arr.forEach(it => { if (it.served === true) n += it.qty; });
+  });
+  return n;
+}
+function tablePendingCount(id) {
+  const g = orders[id]?.guests || {};
+  let n = 0;
+  Object.values(g).forEach(arr => {
+    arr.forEach(it => { if (it.served !== true) n += it.qty; });
+  });
+  return n;
+}
+function isTableEmpty(id) { return tableItemCount(id) === 0; }
+
+/* ============================================================
+   ЭКРАН СТОЛОВ
+   ============================================================ */
+function renderTables() {
+  const el = document.getElementById('tablesView');
+  el.innerHTML = '';
+  TABLE_IDS.forEach(id => {
+    const total   = tableTotal(id);
+    const served  = tableServedCount(id);
+    const pending = tablePendingCount(id);
+    const hasSomething = (served + pending) > 0;
+
+    const btn = document.createElement('div');
+    btn.className = 'table-btn';
+    if (id === 'VIP') btn.classList.add('vip');
+    if (isBarTable(id)) btn.classList.add('bar');
+    if (hasSomething) btn.classList.add('busy');
+
+    let html = `${tableLabel(id)}`;
+    if (hasSomething) {
+      html += `<span class="sum">${fmt(total)}</span>`;
+
+      // Имя того, кто открыл стол. Если пусто — берём текущего пользователя.
+      const opener = orders[id]?.openedBy || (orders[id] ? userName : '');
+      if (opener) {
+        html += `<span class="served-by">${escapeHtml(opener)}</span>`;
+      }
+
+      html += '<div class="badges-row">';
+      if (served > 0) html += `<span class="badge-served">✓ ${served}</span>`;
+      if (pending > 0) html += `<span class="badge-pending">⏳ ${pending}</span>`;
+      html += '</div>';
+    }
+    btn.innerHTML = html;
+
+    btn.onclick = () => openTable(id);
+    el.appendChild(btn);
+  });
+}
+
+/* ============================================================
+   ЭКРАН СТОЛА
+   ============================================================ */
+function openTable(id) {
+  currentTable = id;
+  const t = getTable(id);
+
+  // Если у стола нет openedBy — фиксируем текущего пользователя
+  if (!t.openedBy && userName) {
+    t.openedBy = userName;
+    saveAll();
+  }
+
+  if (Object.keys(t.guests).length === 0) addGuest(false);
+  currentGuest = Object.keys(t.guests)[0];
+
+  document.getElementById('tablesView').style.display = 'none';
+  document.getElementById('orderView').classList.add('show');
+  document.getElementById('backBtn').style.display = 'inline-block';
+  renderTableTitle();
+  renderOrderScreen();
+  startTitleTimer();
+}
+
+function renderTableTitle() {
+  const h1 = document.getElementById('title');
+  if (currentTable === null) {
+    h1.textContent = 'Столы';
+    return;
+  }
+  const t = orders[currentTable];
+  const base = tableLabel(currentTable);
+  if (!t || !t.openedAt) {
+    h1.textContent = base;
+    return;
+  }
+  const elapsed = fmtElapsed(t.openedAt);
+  h1.innerHTML = `${base} <span class="elapsed">· ${elapsed}</span>`;
+}
+
+function startTitleTimer() {
+  stopTitleTimer();
+  titleTimer = setInterval(() => {
+    if (currentTable === null) { stopTitleTimer(); return; }
+    renderTableTitle();
+  }, 30000);
+}
+
+function stopTitleTimer() {
+  if (titleTimer) { clearInterval(titleTimer); titleTimer = null; }
+}
+
+function goBack() {
+  currentTable = null; currentGuest = null;
+  stopTitleTimer();
+
+  document.getElementById('tablesView').style.display = 'grid';
+  document.getElementById('orderView').classList.remove('show');
+  document.getElementById('backBtn').style.display = 'none';
+  document.getElementById('title').textContent = 'Столы';
+  renderTables();
+}
+
+window.addEventListener('popstate', () => {
+  if (currentTable !== null) goBack();
+  history.pushState({}, '', '');
+});
+history.pushState({}, '', '');
+
+function addGuest(render = true) {
+  const t = getTable(currentTable);
+  let n = 1;
+  while (t.guests['Гость ' + n]) n++;
+  t.guests['Гость ' + n] = [];
+  if (!currentGuest) currentGuest = 'Гость ' + n;
+  saveAll();
+  if (render) renderOrderScreen();
+}
+
+function removeGuest(g) {
+  const tbl = currentTable;
+  confirmAction('Удалить гостя?', `Все позиции «${g}» будут удалены.`, () => {
+    if (!orders[tbl]) return;
+    delete orders[tbl].guests[g];
+    const rest = Object.keys(orders[tbl].guests);
+    if (rest.length === 0) { orders[tbl].guests['Гость 1'] = []; currentGuest = 'Гость 1'; }
+    else currentGuest = rest[0];
+    saveAll();
+    renderOrderScreen();
+  });
+}
+
+function selectGuest(g) { currentGuest = g; renderOrderScreen(); }
+
+function renderOrderScreen() {
+  if (currentTable === null) return;
+
+  if (!orders[currentTable]) {
+    showSyncStatus('Стол закрыт другим сотрудником');
+    goBack();
+    return;
+  }
+
+  renderTableTitle();
+  renderGuestTabs();
+  renderOrderList();
+  renderTotals();
+}
+
+function renderGuestTabs() {
+  const wrap = document.getElementById('guestsTabs');
+  const t = getTable(currentTable);
+  wrap.innerHTML = '';
+  Object.keys(t.guests).forEach(g => {
+    const tab = document.createElement('button');
+    tab.className = 'guest-tab' + (g === currentGuest ? ' active' : '');
+    const sum = guestTotal(currentTable, g);
+    tab.innerHTML = `<span>${g}</span><span class="g-sum">${sum ? fmt(sum) : ''}</span>`;
+    tab.onclick = () => selectGuest(g);
+    const del = document.createElement('button');
+    del.className = 'g-del';
+    del.textContent = '×';
+    del.onclick = (e) => { e.stopPropagation(); removeGuest(g); };
+    tab.appendChild(del);
+    wrap.appendChild(tab);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-guest-btn';
+  addBtn.textContent = '+ Гость';
+  addBtn.onclick = () => addGuest();
+  wrap.appendChild(addBtn);
+}
+
+function renderOrderList() {
+  const list = document.getElementById('orderList');
+  const items = getTable(currentTable).guests[currentGuest] || [];
+  list.innerHTML = '';
+
+  if (!items.length) {
+    list.innerHTML = '<div class="empty">Пусто. Нажмите «Меню» чтобы добавить позицию.</div>';
+    return;
+  }
+
+  items.forEach((it, idx) => {
+    const sum = it.price * it.qty;
+    const served = it.served === true;
+    const lockedByServed = served;
+    const lockedByAuthor = !canEditItem(it);
+    const editable = !lockedByServed && !lockedByAuthor;
+    const canServe = canToggleServed(it);
+
+    const row = document.createElement('div');
+    row.className = 'order-item' + (served ? ' served' : '');
+
+    const statusBadge = served
+      ? '<span class="item-status served">Подано</span>'
+      : '<span class="item-status pending">Готовится</span>';
+
+    const author = it.addedBy
+      ? `<span style="color:#6a6a6a;font-size:11px;"> • ${escapeHtml(it.addedBy.split(' ')[0])}</span>`
+      : '';
+
+    const commentLine = it.comment
+      ? `<div class="comment-line">${escapeHtml(it.comment)}</div>`
+      : '';
+
+    row.innerHTML = `
+      <button class="check-btn ${served ? 'checked' : ''}" ${canServe ? '' : 'disabled'} title="${served ? 'Снять метку' : 'Отметить как подано'}">
+        ${served ? '✓' : ''}
+      </button>
+      <div class="info">
+        <div class="name">${escapeHtml(it.name)}${statusBadge}</div>
+        <div class="sub">${fmt(it.price)} × ${it.qty} = ${fmt(sum)}${author}</div>
+        ${commentLine}
+      </div>
+      <div class="price">${fmt(sum)}</div>
+      ${editable ? `
+        <div class="controls">
+          <button data-act="dec">−</button>
+          <span class="qty">${it.qty}</span>
+          <button data-act="inc">+</button>
+        </div>
+      ` : lockedByServed ? `
+        <span class="lock-badge" title="Сначала снимите метку «Подано»">✓ ${escapeHtml((it.servedBy || '').split(' ')[0] || 'подано')}</span>
+      ` : `
+        <span class="lock-badge" title="Позицию внёс ${escapeHtml(it.addedBy || 'другой сотрудник')}">🔒 ${escapeHtml((it.addedBy || '').split(' ')[0] || 'чужое')}</span>
+      `}
+      <button class="comment-btn ${it.comment ? 'has-comment' : ''}" title="${it.comment ? 'Изменить комментарий' : 'Добавить комментарий'}">💬</button>
+    `;
+
+    const checkBtn = row.querySelector('.check-btn');
+    if (canServe) {
+      checkBtn.onclick = (e) => { e.stopPropagation(); toggleServed(idx); };
+    }
+
+    if (editable) {
+      row.querySelector('[data-act="dec"]').onclick = (e) => { e.stopPropagation(); changeQty(idx, -1); };
+      row.querySelector('[data-act="inc"]').onclick = (e) => { e.stopPropagation(); changeQty(idx, +1); };
+    }
+
+    const commentBtn = row.querySelector('.comment-btn');
+    commentBtn.onclick = (e) => { e.stopPropagation(); openCommentModal(idx); };
+
+    list.appendChild(row);
+  });
+}
+
+function renderTotals() {
+  const items = getTable(currentTable).guests[currentGuest] || [];
+  const guestQty = items.reduce((s, it) => s + it.qty, 0);
+  document.getElementById('guestCount').textContent = guestQty;
+  document.getElementById('guestSum').textContent = fmt(guestTotal(currentTable, currentGuest));
+  document.getElementById('tableSum').textContent = fmt(tableTotal(currentTable));
+
+  const t = orders[currentTable];
+  const openEl = document.getElementById('tableOpenedAt');
+  if (t && t.openedAt) {
+    openEl.textContent = `${fmtTime(t.openedAt)} (${fmtElapsed(t.openedAt)})`;
+  } else {
+    openEl.textContent = '—';
+  }
+}
+
+function changeQty(idx, delta) {
+  const items = getTable(currentTable).guests[currentGuest];
+  const it = items[idx];
+  if (!it) return;
+  if (it.served) { vibrate([30,40,30]); showSyncStatus('Позиция подана — снимите метку'); return; }
+  if (!canEditItem(it)) { vibrate([30,40,30]); showSyncStatus('Чужая позиция'); return; }
+
+  it.qty += delta;
+  if (it.qty <= 0) items.splice(idx, 1);
+  vibrate(12);
+  saveAll();
+  requestAnimationFrame(renderOrderScreen);
+}
+
+/* ============================================================
+   МЕТКА "ПОДАНО"
+   ============================================================ */
+function toggleServed(idx) {
+  const items = getTable(currentTable).guests[currentGuest];
+  const it = items[idx];
+  if (!it) return;
+  if (!canToggleServed(it)) { vibrate([30,40,30]); showSyncStatus('Нет прав'); return; }
+
+  it.served = !it.served;
+  if (it.served) it.servedBy = userName;
+  else delete it.servedBy;
+  vibrate(20);
+  saveAll();
+  requestAnimationFrame(renderOrderScreen);
+  showSyncStatus(it.served ? 'Отмечено как подано' : 'Метка снята');
+}
+
+/* ============================================================
+   КОММЕНТАРИИ
+   ============================================================ */
+function openCommentModal(idx) {
+  const items = getTable(currentTable).guests[currentGuest];
+  const it = items[idx];
+  if (!it) return;
+
+  commentEditIdx = idx;
+  document.getElementById('commentDishName').textContent = it.name;
+  const input = document.getElementById('commentInput');
+  input.value = it.comment || '';
+  document.getElementById('commentDeleteRow').style.display = it.comment ? 'flex' : 'none';
+  openModal('commentModal');
+  setTimeout(() => input.focus(), 150);
+}
+
+function closeCommentModal() {
+  closeModal('commentModal');
+  commentEditIdx = null;
+}
+
+async function saveComment() {
+  if (commentEditIdx === null) return;
+  const items = getTable(currentTable).guests[currentGuest];
+  const it = items[commentEditIdx];
+  if (!it) { closeCommentModal(); return; }
+
+  const text = (document.getElementById('commentInput').value || '').trim();
+  if (text) it.comment = text;
+  else delete it.comment;
+
+  vibrate(15);
+  await saveAll();
+  closeCommentModal();
+  renderOrderScreen();
+  showSyncStatus(text ? 'Комментарий добавлен' : 'Комментарий удалён');
+}
+
+async function deleteComment() {
+  if (commentEditIdx === null) return;
+  const items = getTable(currentTable).guests[currentGuest];
+  const it = items[commentEditIdx];
+  if (!it) { closeCommentModal(); return; }
+
+  delete it.comment;
+  vibrate(20);
+  await saveAll();
+  closeCommentModal();
+  renderOrderScreen();
+  showSyncStatus('Комментарий удалён');
+}
+
+/* ============================================================
+   МЕНЮ
+   ============================================================ */
+function openMenu() {
+  document.getElementById('menuGuestLabel').textContent =
+    `${tableLabel(currentTable)} • ${currentGuest}`;
+  currentCategory = Object.keys(MENU)[0];
+  searchQuery = '';
+  const inp = document.getElementById('menuSearch');
+  if (inp) inp.value = '';
+  document.getElementById('searchClear').style.display = 'none';
+  document.getElementById('searchInfo').textContent = '';
+  document.getElementById('catTabs').style.display = 'flex';
+  renderCatTabs();
+  renderMenuGrid();
+  openModal('menuModal');
+}
+
+function onSearchInput() {
+  searchQuery = (document.getElementById('menuSearch').value || '').trim().toLowerCase();
+  document.getElementById('searchClear').style.display = searchQuery ? 'block' : 'none';
+  document.getElementById('catTabs').style.display = searchQuery ? 'none' : 'flex';
+  renderMenuGrid();
+}
+
+function clearSearch() {
+  document.getElementById('menuSearch').value = '';
+  searchQuery = '';
+  document.getElementById('searchClear').style.display = 'none';
+  document.getElementById('catTabs').style.display = 'flex';
+  document.getElementById('searchInfo').textContent = '';
+  renderMenuGrid();
+  document.getElementById('menuSearch').focus();
+}
+
+function matchesSearch(dish, query) {
+  if (!query) return false;
+  const q = query.toLowerCase();
+  if (dish.name.toLowerCase().includes(q)) return true;
+  if (dish.desc && dish.desc.toLowerCase().includes(q)) return true;
+  if (dish.tags && dish.tags.some(t => t.toLowerCase().includes(q))) return true;
+  return false;
+}
+
+function renderCatTabs() {
+  const wrap = document.getElementById('catTabs');
+  wrap.innerHTML = '';
+  Object.keys(MENU).forEach(cat => {
+    const btn = document.createElement('button');
+    const isSpecial = SPECIAL_CATEGORIES.includes(cat);
+    btn.className = 'cat-tab'
+      + (isSpecial ? ' special' : '')
+      + (cat === currentCategory ? ' active' : '');
+    btn.textContent = cat;
+    btn.onclick = () => { currentCategory = cat; renderCatTabs(); renderMenuGrid(); };
+    wrap.appendChild(btn);
+  });
+}
+
+function renderMenuGrid() {
+  const grid = document.getElementById('menuGrid');
+  const info = document.getElementById('searchInfo');
+  grid.innerHTML = '';
+
+  if (searchQuery) {
+    const found = [];
+    Object.keys(MENU).forEach(cat => {
+      MENU[cat].forEach(dish => {
+        if (matchesSearch(dish, searchQuery)) found.push({ ...dish, category: cat });
+      });
+    });
+    if (!found.length) {
+      grid.innerHTML = `<div class="empty">Ничего не найдено по «${escapeHtml(searchQuery)}»</div>`;
+      info.textContent = '';
+      return;
+    }
+    info.textContent = `Найдено: ${found.length}`;
+    found.forEach(dish => grid.appendChild(buildMenuCard(dish, dish.category)));
+    return;
+  }
+
+  info.textContent = '';
+  const isSpecial = SPECIAL_CATEGORIES.includes(currentCategory);
+  MENU[currentCategory].forEach(dish => grid.appendChild(buildMenuCard(dish, currentCategory, isSpecial)));
+}
+
+function buildMenuCard(dish, category, isSpecialOverride) {
+  const isSpecial = isSpecialOverride !== undefined ? isSpecialOverride : SPECIAL_CATEGORIES.includes(category);
+  const el = document.createElement('div');
+  el.className = 'menu-item' + (isSpecial ? ' special' : '');
+  el.innerHTML = `
+    <div class="mi-info">
+      <div class="mi-name">${escapeHtml(dish.name)}</div>
+      ${dish.desc ? `<div class="mi-desc">${escapeHtml(dish.desc)}</div>` : ''}
+      ${searchQuery ? `<div class="mi-cat">${escapeHtml(category)}</div>` : ''}
+    </div>
+    <div class="mi-price">${fmt(dish.price)}</div>
+  `;
+  el.onclick = () => addDishToGuest({ ...dish, category }, el);
+  return el;
+}
+
+function addDishToGuest(dish, el) {
+  if (currentTable === null || !currentGuest) return;
+  const items = getTable(currentTable).guests[currentGuest];
+  if (!items) return;
+
+  const editable = items.find(i =>
+    i.name === dish.name &&
+    i.price === dish.price &&
+    i.served !== true &&
+    canEditItem(i)
+  );
+
+  if (editable) {
+    editable.qty += 1;
+    showSyncStatus('Добавлено: ' + dish.name);
+  } else {
+    items.push({
+      name: dish.name,
+      price: dish.price,
+      qty: 1,
+      category: dish.category || currentCategory,
+      addedBy: userName,
+      served: false,
+    });
+    showSyncStatus('Добавлено: ' + dish.name);
+  }
+
+  vibrate(15);
+  saveAll();
+  if (el) { el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 250); }
+  renderOrderScreen();
+}
+
+/* ============================================================
+   СЧЁТ
+   ============================================================ */
+function buildBillText(fullTable = false) {
+  const t = getTable(currentTable);
+  let text = `${tableLabel(currentTable)}\n`;
+  text += `Открыт: ${new Date(t.openedAt).toLocaleString('ru-RU')}\n`;
+  text += `Обслуживает: ${t.openedBy || userName}\n`;
+  text += '─'.repeat(28) + '\n\n';
+
+  if (fullTable) {
+    Object.keys(t.guests).forEach(g => {
+      const items = t.guests[g];
+      if (!items.length) return;
+      text += `▸ ${g}\n`;
+      items.forEach(it => {
+        const sum = it.price * it.qty;
+        const mark = it.served ? ' ✓' : '';
+        const cmt = it.comment ? `\n     💬 ${it.comment}` : '';
+        if (it.qty > 1) {
+          text += `  ${it.qty}x ${it.name}${mark}\n`;
+          text += `     ${fmt(it.price)} × ${it.qty} = ${fmt(sum)}${cmt}\n`;
+        } else {
+          text += `  ${it.name}${mark} — ${fmt(sum)}${cmt}\n`;
+        }
+      });
+      text += `  Итого по гостю: ${fmt(guestTotal(currentTable, g))}\n\n`;
+    });
+    text += '─'.repeat(28) + '\n';
+    text += `ИТОГО ПО СТОЛУ: ${fmt(tableTotal(currentTable))}\n`;
+  } else {
+    const items = t.guests[currentGuest] || [];
+    text += `▸ ${currentGuest}\n\n`;
+    items.forEach(it => {
+      const sum = it.price * it.qty;
+      const mark = it.served ? ' ✓' : '';
+      const cmt = it.comment ? `\n   💬 ${it.comment}` : '';
+      if (it.qty > 1) {
+        text += `${it.qty}x ${it.name}${mark}\n`;
+        text += `   ${fmt(it.price)} × ${it.qty} = ${fmt(sum)}${cmt}\n`;
+      } else {
+        text += `${it.name}${mark} — ${fmt(sum)}${cmt}\n`;
+      }
+    });
+    text += '\n' + '─'.repeat(28) + '\n';
+    text += `ИТОГО: ${fmt(guestTotal(currentTable, currentGuest))}\n`;
+  }
+  text += `\nДата: ${new Date().toLocaleString('ru-RU')}`;
+  return text;
+}
+
+function showBill(fullTable = false) {
+  if (currentTable === null) return;
+  if (isTableEmpty(currentTable)) { alert('Стол пуст'); return; }
+  currentBillText = buildBillText(fullTable);
+  document.getElementById('billTitle').textContent = fullTable
+    ? `Счёт — ${tableLabel(currentTable)} (весь стол)`
+    : `Счёт — ${currentGuest} (${tableLabel(currentTable)})`;
+  document.getElementById('billText').textContent = currentBillText;
+  openModal('billModal');
+}
+
+async function copyBill() {
+  try {
+    await navigator.clipboard.writeText(currentBillText);
+    const btn = event.target;
+    const old = btn.textContent;
+    btn.textContent = 'Скопировано';
+    setTimeout(() => btn.textContent = old, 1500);
+  } catch { alert('Не удалось скопировать'); }
+}
+async function shareBill() {
+  if (navigator.share) {
+    try { await navigator.share({ title: 'Счёт', text: currentBillText }); } catch {}
+  } else copyBill();
+}
+
+/* ============================================================
+   ПОДТВЕРЖДЕНИЕ
+   ============================================================ */
+function confirmAction(title, text, cb) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmText').textContent = text;
+  const oldBtn = document.getElementById('confirmOk');
+  const newBtn = oldBtn.cloneNode(true);
+  oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+  newBtn.onclick = () => {
+    closeModal('confirmModal');
+    try { cb && cb(); } catch (e) { console.error(e); }
+  };
+  openModal('confirmModal');
+}
+
+function confirmClearTable() {
+  if (currentTable === null) return;
+  if (isTableEmpty(currentTable)) { alert('Стол уже пуст'); return; }
+  const tbl = currentTable;
+  const label = tableLabel(tbl);
+  const count = tableItemCount(tbl);
+  confirmAction('Очистить стол?',
+    `Все позиции (${count} шт) на ${label} будут удалены. Действие нельзя отменить.`,
+    async () => {
+      delete orders[tbl];
+      await saveTableToServer(tbl);
+      goBack();
+    });
+}
+
+/* ============================================================
+   ОПЛАТА И ЗАКРЫТИЕ СТОЛА
+   ============================================================ */
+async function closeTableAndPay() {
+  if (currentTable === null) return;
+  if (isTableEmpty(currentTable)) { alert('Стол пуст'); return; }
+
+  const tbl = currentTable;
+  const total = tableTotal(tbl);
+  const closedBy = userName;
+  const closedAt = Date.now();
+
+  confirmAction('Оплатить и закрыть стол?',
+    `Сумма к оплате: ${fmt(total)}. Заказ попадёт в отчёт за смену.`,
+    async () => {
+      const snapshot = JSON.parse(JSON.stringify(orders[tbl]));
+
+      shift.push({
+        table: tbl,
+        guests: snapshot.guests,
+        total: total,
+        openedAt: snapshot.openedAt || null,
+        closedAt: closedAt,
+        closedBy: closedBy,
+        openedBy: snapshot.openedBy || null,
+      });
+      await saveShiftToServer();
+
+      delete orders[tbl];
+      await saveTableToServer(tbl);
+
+      goBack();
+      showSyncStatus('Стол закрыт: ' + closedBy.split(' ')[0]);
+    });
+}
+
+/* ============================================================
+   ОТЧЁТ
+   ============================================================ */
+function openShiftReport() { renderShiftReport(); openModal('shiftModal'); }
+
+function renderShiftReport() {
+  const wrap = document.getElementById('shiftContent');
+  const totalRevenue = shift.reduce((s, x) => s + x.total, 0);
+  const totalChecks  = shift.length;
+  const avgCheck     = totalChecks ? Math.round(totalRevenue / totalChecks) : 0;
+
+  let html = `
+    <div class="shift-summary">
+      <div class="lbl">Выручка за смену</div>
+      <div class="val">${fmt(totalRevenue)}</div>
+      <div class="lbl">Закрытых счетов</div>
+      <div class="val">${totalChecks}</div>
+      <div class="lbl">Средний чек</div>
+      <div class="val">${fmt(avgCheck)}</div>
+    </div>
+  `;
+  if (!shift.length) {
+    html += '<div class="empty">Пока ни один стол не закрыт.</div>';
+  } else {
+    html += '<h3 style="margin:14px 0 8px;font-size:14px;color:#8a8884;text-transform:uppercase;letter-spacing:.5px;">Закрытые столы</h3>';
+    const reversed = shift.map((x, i) => ({ ...x, _origIdx: i })).reverse();
+    reversed.forEach(x => {
+      const closer = x.closedBy ? 'Закрыл: ' + escapeHtml(x.closedBy) : '';
+      const opener = x.openedBy ? 'Открыл: ' + escapeHtml(x.openedBy) : '';
+      const meta = [closer, opener].filter(Boolean).join(' • ');
+      html += `
+        <div class="shift-row clickable" onclick="openClosedTable(${x._origIdx})">
+          <div class="sr-head"><span>${tableLabel(x.table)}</span><span>${fmt(x.total)}</span></div>
+          <div class="sr-sub">${new Date(x.closedAt).toLocaleTimeString('ru-RU')}${meta ? ' • ' + meta : ''}</div>
+        </div>
+      `;
+    });
+  }
+  wrap.innerHTML = html;
+}
+
+/* ============================================================
+   ДЕТАЛИ ЗАКРЫТОГО СТОЛА
+   ============================================================ */
+function openClosedTable(idx) {
+  const x = shift[idx];
+  if (!x) return;
+
+  document.getElementById('closedTableTitle').textContent = tableLabel(x.table);
+
+  const openedStr = x.openedAt
+    ? `Открыт: ${new Date(x.openedAt).toLocaleString('ru-RU')}`
+    : '';
+  const closedStr = `Закрыт: ${new Date(x.closedAt).toLocaleString('ru-RU')}`;
+  const closedByStr = x.closedBy ? `Закрыл: ${escapeHtml(x.closedBy)}` : '';
+  const openedByStr = x.openedBy ? `Открыл: ${escapeHtml(x.openedBy)}` : '';
+  const metaParts = [closedStr, closedByStr, openedByStr].filter(Boolean);
+
+  let html = `
+    <div class="closed-meta">
+      ${metaParts.map(p => `<div>${p}</div>`).join('')}
+    </div>
+  `;
+
+  const guests = x.guests || {};
+  const guestNames = Object.keys(guests);
+
+  if (!guestNames.length) {
+    html += '<div class="empty">В этом счёте нет позиций.</div>';
+  } else {
+    guestNames.forEach(g => {
+      const items = guests[g] || [];
+      if (!items.length) return;
+
+      html += `<div class="closed-guest-title">▸ ${escapeHtml(g)}</div>`;
+
+      items.forEach(it => {
+        const sum = it.price * it.qty;
+        const servedMark = it.served ? '<span class="closed-served">✓</span>' : '';
+        const cmt = it.comment
+          ? `<div class="closed-comment">💬 ${escapeHtml(it.comment)}</div>`
+          : '';
+        html += `
+          <div class="closed-item">
+            <div class="closed-item-name">${escapeHtml(it.name)} ${servedMark}</div>
+            <div class="closed-item-sub">${fmt(it.price)} × ${it.qty} = <b>${fmt(sum)}</b></div>
+            ${cmt}
+          </div>
+        `;
+      });
+
+      const guestSum = items.reduce((s, it) => s + it.price * it.qty, 0);
+      html += `<div class="closed-guest-total">Итого по гостю: <b>${fmt(guestSum)}</b></div>`;
+    });
+
+    html += `
+      <div class="closed-total">
+        <span>ИТОГО ПО СТОЛУ:</span>
+        <span>${fmt(x.total)}</span>
+      </div>
+    `;
+  }
+
+  document.getElementById('closedTableContent').innerHTML = html;
+  currentClosedBillText = buildClosedTableText(x);
+  openModal('closedTableModal');
+}
+
+function buildClosedTableText(x) {
+  let text = `${tableLabel(x.table)}\n`;
+  text += `Закрыт: ${new Date(x.closedAt).toLocaleString('ru-RU')}\n`;
+  if (x.closedBy) text += `Закрыл: ${x.closedBy}\n`;
+  if (x.openedBy) text += `Открыл: ${x.openedBy}\n`;
+  text += '─'.repeat(28) + '\n\n';
+
+  const guests = x.guests || {};
+  Object.keys(guests).forEach(g => {
+    const items = guests[g];
+    if (!items.length) return;
+    text += `▸ ${g}\n`;
+    items.forEach(it => {
+      const sum = it.price * it.qty;
+      const mark = it.served ? ' ✓' : '';
+      const cmt = it.comment ? `\n   💬 ${it.comment}` : '';
+      if (it.qty > 1) {
+        text += `${it.qty}x ${it.name}${mark}\n`;
+        text += `   ${fmt(it.price)} × ${it.qty} = ${fmt(sum)}${cmt}\n`;
+      } else {
+        text += `${it.name}${mark} — ${fmt(sum)}${cmt}\n`;
+      }
+    });
+    const guestSum = items.reduce((s, it) => s + it.price * it.qty, 0);
+    text += `Итого по гостю: ${fmt(guestSum)}\n\n`;
+  });
+
+  text += '─'.repeat(28) + '\n';
+  text += `ИТОГО: ${fmt(x.total)}\n`;
+  return text;
+}
+
+async function copyClosedTableBill() {
+  try {
+    await navigator.clipboard.writeText(currentClosedBillText);
+    const btn = event.target;
+    const old = btn.textContent;
+    btn.textContent = 'Скопировано';
+    setTimeout(() => btn.textContent = old, 1500);
+  } catch { alert('Не удалось скопировать'); }
+}
+
+function copyShiftReport() {
+  const totalRevenue = shift.reduce((s, x) => s + x.total, 0);
+  let text = `ОТЧЁТ ЗА СМЕНУ\nДата: ${new Date().toLocaleString('ru-RU')}\n`;
+  text += '─'.repeat(28) + '\n';
+  text += `Выручка: ${fmt(totalRevenue)}\n`;
+  text += `Закрытых счетов: ${shift.length}\n`;
+  text += `Средний чек: ${fmt(shift.length ? Math.round(totalRevenue/shift.length) : 0)}\n\n`;
+  text += `Столы:\n`;
+  shift.forEach(x => {
+    const who = x.closedBy ? ' — ' + x.closedBy : '';
+    text += `  ${tableLabel(x.table)} — ${fmt(x.total)}${who} (${new Date(x.closedAt).toLocaleTimeString('ru-RU')})\n`;
+  });
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    const old = btn.textContent;
+    btn.textContent = 'Скопировано';
+    setTimeout(() => btn.textContent = old, 1500);
+  }).catch(() => alert(text));
+}
+
+function confirmResetShift() {
+  const total = shift.reduce((s,x)=>s+x.total,0);
+  confirmAction('Сбросить смену?',
+    `Отчёт (${shift.length} счетов на ${fmt(total)}) будет удалён.`,
+    async () => {
+      shift = [];
+      await saveShiftToServer();
+      renderShiftReport();
+    });
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+(async () => {
+  await loadAllFromServer();
+  subscribeToChanges();
+  startPolling();
+
+  const hasRole = loadRole();
+  if (!hasRole) {
+    document.getElementById('roleView').style.display = 'block';
+    document.getElementById('tablesView').style.display = 'none';
+  } else {
+    renderTables();
+  }
+})();
+</script>
+</body>
+</html>
