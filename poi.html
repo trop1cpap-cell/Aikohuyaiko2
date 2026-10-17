@@ -86,7 +86,6 @@
     display: flex; align-items: center; gap: 6px;
   }
   .guest-tab.active { background: var(--card-2); color: var(--primary); border-color: rgba(201,185,138,.4); font-weight: 600; }
-  .guest-tab .g-sum { font-size: 12px; opacity: .7; }
   .guest-tab .g-edit { background: transparent; border: 0; color: var(--muted); font-size: 14px; cursor: pointer; padding: 0 2px; }
   .add-guest-btn { background: transparent; border: 1px dashed var(--border); padding: 8px 14px; border-radius: 20px; font-size: 14px; color: var(--muted); cursor: pointer; }
 
@@ -154,12 +153,28 @@
   .cat-tab.active { background: var(--card-2); color: var(--primary); border-color: rgba(201,185,138,.4); font-weight: 600; }
   .cat-tab.special { background: var(--vip); color: var(--primary); border-color: rgba(201,185,138,.2); }
   .menu-grid { display: grid; gap: 8px; }
-  .menu-item { background: var(--card); border-radius: 12px; padding: 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border: 1px solid var(--border); }
-  .menu-item:active { background: var(--card-2); border-color: var(--primary); }
+  
+  /* Карточка товара в меню */
+  .menu-item { 
+    background: var(--card); border-radius: 12px; padding: 12px 14px; 
+    display: flex; justify-content: space-between; align-items: center; 
+    border: 1px solid var(--border); 
+  }
   .menu-item.special { background: var(--vip); border-color: rgba(201,185,138,.2); }
+  .menu-item .mi-content { flex: 1; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+  .menu-item .mi-content:active { opacity: 0.7; }
+  .menu-item .mi-info { flex: 1; }
   .menu-item .mi-name { font-weight: 500; color: var(--text-strong); }
   .menu-item .mi-desc { font-size: 12px; color: var(--muted); margin-top: 3px; }
   .menu-item .mi-price { font-weight: 600; color: var(--primary); margin-left: 10px; }
+  .menu-item .mi-comment-btn {
+    background: rgba(255,255,255,.05); border: 1px solid var(--border);
+    border-radius: 8px; width: 36px; height: 36px; margin-left: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; cursor: pointer; color: var(--muted);
+    flex-shrink: 0;
+  }
+  .menu-item .mi-comment-btn:active { background: rgba(255,255,255,.1); }
 
   /* SHIFT */
   .shift-summary { background: var(--card); padding: 20px; border-radius: 14px; margin-bottom: 14px; border: 1px solid var(--border); }
@@ -257,15 +272,15 @@
   </div>
 </div>
 
-<!-- MODAL: COMMENT (сразу при добавлении) -->
+<!-- MODAL: COMMENT -->
 <div class="modal-back" id="commentModal" onclick="if(event.target===this) closeCommentModal()">
   <div class="modal">
-    <h2>Добавить комментарий</h2>
+    <h2>Комментарий к позиции</h2>
     <p id="commentDishName" style="color:var(--primary);margin-bottom:14px;"></p>
     <input type="text" id="commentInput" class="search-input" placeholder="Например: без льда…" onkeydown="if(event.key==='Enter') saveComment()">
     <div class="row" style="margin-top:14px;">
-      <button class="close" onclick="saveComment(true)">Без комментария</button>
-      <button class="copy" onclick="saveComment(false)">Сохранить</button>
+      <button class="close" onclick="closeCommentModal()">Отмена</button>
+      <button class="copy" onclick="saveComment()">Сохранить</button>
     </div>
     <div class="row" id="commentDeleteRow" style="display:none;">
       <button class="danger" onclick="deleteComment()">Удалить комментарий</button>
@@ -466,7 +481,7 @@ const MENU = {
     { name: 'Kozel 0.5',          price: 350, tags: ['козел','kozel'] },
     { name: 'Efes 0.5',           price: 350, tags: ['эфес','efes'] },
     { name: 'Старый Мельник 0.5', price: 350, tags: ['старый','мельник'] },
-    { name: 'Bud 0.44',           price: 350, tags: ['буд','bud','budweiser'] },
+    { name: 'Bud 0.44',           price: 350, tags: ['бад','bud','budweiser'] },
     { name: 'Фисташки 100гр',     price: 400, tags: ['фисташки','орехи'] },
     { name: 'Арахис 100гр',       price: 250, tags: ['арахис','орехи'] },
   ],
@@ -493,6 +508,9 @@ const MENU = {
     { name: 'Ассорти сыров 350гр',           price: 800, tags: ['ассорти','сыры','cheese'] },
     { name: 'Лимон долька',                  price: 30,  tags: ['лимон','долька','lemon'] },
     { name: 'Лайм долька',                   price: 30,  tags: ['лайм','долька','lime'] },
+    { name: 'Лимон нарезка',                 price: 150, tags: ['лимон','нарезка','lemon'] },
+    { name: 'Лайм нарезка',                  price: 120, tags: ['лайм','нарезка','lime'] },
+    { name: 'Апельсин нарезка',              price: 250, tags: ['апельсин','нарезка','lemon'] },
   ],
   'Горячее': [
     { name: 'Курица в беконе 250гр',       price: 650, tags: ['курица','бекон'] },
@@ -532,6 +550,7 @@ const MENU = {
   '⭐ Доп. услуги': [
     { name: 'Песня вне очереди', price: 1000, desc: 'Караоке-услуга', tags: ['песня','караоке'] },
     { name: 'Кальян',            price: 1500, desc: 'Классический / фруктовый', tags: ['кальян','hookah'] },
+    { name: 'Контейнер',         price: 50, tags: ['контейнер','собой'] },
   ],
   '🎁 Скидки': [
     { name: 'Скидка 10% (День рождения)', price: 0, desc: 'Применяется ко всему счёту', tags: ['скидка','день','рождения','др'], isDiscount: 0.10 }
@@ -539,9 +558,9 @@ const MENU = {
 };
 const SPECIAL_CATEGORIES = ['⭐ Доп. услуги', '🎁 Скидки'];
 const TABLE_IDS = [1,2,3,4,5,6,7,8,'VIP','Бар 1','Бар 2'];
-const STORAGE_KEY = 'waiter_orders_v14';
-const SHIFT_KEY   = 'waiter_shift_v14';
-const ROLE_KEY    = 'waiter_role_v14';
+const STORAGE_KEY = 'waiter_orders_v15';
+const SHIFT_KEY   = 'waiter_shift_v15';
+const ROLE_KEY    = 'waiter_role_v15';
 const SHIFT_ROW_ID = -1;
 
 let orders = {}, shift = [];
@@ -752,14 +771,6 @@ function tableTotal(id) {
   Object.keys(g).forEach(k => sum += guestTotal(id, k) - guestDiscount(id, k));
   return sum;
 }
-function tableSubtotal(id) {
-  const g = orders[id]?.guests || {};
-  return Object.keys(g).reduce((s, k) => s + guestTotal(id, k), 0);
-}
-function tableDiscount(id) {
-  const g = orders[id]?.guests || {};
-  return Object.keys(g).reduce((s, k) => s + guestDiscount(id, k), 0);
-}
 function tableServedCount(id) {
   return Object.values(orders[id]?.guests || {}).reduce((s, arr) => s + arr.reduce((a,it) => a + (it.served && !it.isDiscount ? it.qty : 0), 0), 0);
 }
@@ -948,14 +959,17 @@ function toggleServed(idx) {
 }
 
 /* ============================================================
-   MENU (с обработкой скидок и комментариев)
+   MENU (с поиском по категориям и кнопкой комментария)
    ============================================================ */
 function openMenu() {
   document.getElementById('menuGuestLabel').textContent = `${tableLabel(currentTable)} • ${currentGuest}`;
   currentCategory = Object.keys(MENU)[0]; searchQuery = ''; document.getElementById('menuSearch').value = '';
   renderCatTabs(); renderMenuGrid(); openModal('menuModal');
 }
-function onSearchInput() { searchQuery = document.getElementById('menuSearch').value.trim().toLowerCase(); renderMenuGrid(); }
+function onSearchInput() { 
+  searchQuery = document.getElementById('menuSearch').value.trim().toLowerCase(); 
+  renderMenuGrid(); 
+}
 function matchesSearch(dish, query) {
   if (!query) return false;
   const q = query.toLowerCase();
@@ -974,43 +988,80 @@ function renderCatTabs() {
 }
 function renderMenuGrid() {
   const grid = document.getElementById('menuGrid'); grid.innerHTML = '';
+  
   if (searchQuery) {
     const found = [];
+    // Ищем по всем категориям
     Object.keys(MENU).forEach(cat => {
-      MENU[cat].forEach(d => { if (matchesSearch(d, searchQuery)) found.push({ ...d, catName: cat }); });
+      // Если введенный текст совпадает с названием категории (или входит в него)
+      const isCatMatch = cat.toLowerCase().includes(searchQuery);
+      
+      MENU[cat].forEach(d => { 
+        // Добавляем, если совпало по названию/тегам блюда ИЛИ совпало по категории
+        if (matchesSearch(d, searchQuery) || isCatMatch) {
+          // Проверяем, чтобы не добавить дубликат, если блюдо подошло по двум параметрам
+          if (!found.some(f => f.name === d.name && f.catName === cat)) {
+            found.push({ ...d, catName: cat }); 
+          }
+        }
+      });
     });
+    
     found.forEach(d => grid.appendChild(buildMenuCard(d, d.catName)));
     if (!found.length) grid.innerHTML = '<div class="empty">Ничего не найдено</div>';
     return;
   }
+  
   MENU[currentCategory].forEach(d => grid.appendChild(buildMenuCard(d, currentCategory)));
 }
 function buildMenuCard(dish, category) {
   const el = document.createElement('div');
   el.className = 'menu-item' + (SPECIAL_CATEGORIES.includes(category) ? ' special' : '');
-  el.innerHTML = `<div class="mi-info"><div class="mi-name">${escapeHtml(dish.name)}</div>${dish.desc ? `<div class="mi-desc">${escapeHtml(dish.desc)}</div>` : ''}</div><div class="mi-price">${dish.isDiscount ? '−' + (dish.isDiscount * 100) + '%' : fmt(dish.price)}</div>`;
-  el.onclick = () => {
-    if (dish.isDiscount) applyDiscount(dish);
-    else promptCommentThenAdd(dish, category, el);
-  };
+  
+  el.innerHTML = `
+    <div class="mi-content" onclick="quickAddDish('${escapeHtml(category)}', '${escapeHtml(dish.name)}')">
+      <div class="mi-info">
+        <div class="mi-name">${escapeHtml(dish.name)}</div>
+        ${dish.desc ? `<div class="mi-desc">${escapeHtml(dish.desc)}</div>` : ''}
+        ${searchQuery ? `<div class="mi-desc" style="color:var(--primary)">${escapeHtml(category)}</div>` : ''}
+      </div>
+      <div class="mi-price">${dish.isDiscount ? '−' + (dish.isDiscount * 100) + '%' : fmt(dish.price)}</div>
+    </div>
+    ${!dish.isDiscount ? `<button class="mi-comment-btn" onclick="event.stopPropagation(); promptMenuComment('${escapeHtml(category)}', '${escapeHtml(dish.name)}', ${dish.price})">💬</button>` : ''}
+  `;
   return el;
 }
-function applyDiscount(dish) {
+
+// Быстрое добавление (без комментария)
+function quickAddDish(category, dishName) {
+  const dish = MENU[category].find(d => d.name === dishName);
+  if (!dish) return;
+  if (dish.isDiscount) { applyDiscount(dish); return; }
+  
   const items = getTable(currentTable).guests[currentGuest];
-  if (items.some(it => it.isDiscount)) { alert('Скидка уже применена к этому гостю'); return; }
-  items.push({ name: dish.name, price: 0, qty: 1, isDiscount: dish.isDiscount, addedBy: userName });
-  saveAll(); renderOrderScreen(); closeModal('menuModal');
+  const existing = items.find(i => i.name === dish.name && i.price === dish.price && i.served !== true && canEditItem(i));
+  
+  if (existing) {
+    existing.qty += 1;
+  } else {
+    items.push({ name: dish.name, price: dish.price, qty: 1, category, addedBy: userName, served: false });
+  }
+  vibrate(15);
+  saveAll(); renderOrderScreen();
+  showSyncStatus('Добавлено: ' + dish.name);
 }
-function promptCommentThenAdd(dish, category, el) {
-  // Сразу показываем модалку комментария
-  pendingDishForComment = { dish, category };
-  document.getElementById('commentDishName').textContent = dish.name;
+
+// Добавление через модалку комментария
+function promptMenuComment(category, dishName, price) {
+  pendingDishForComment = { category, dishName, price };
+  document.getElementById('commentDishName').textContent = dishName;
   document.getElementById('commentInput').value = '';
   document.getElementById('commentDeleteRow').style.display = 'none';
   openModal('commentModal');
   setTimeout(() => document.getElementById('commentInput').focus(), 150);
 }
 
+// Модалка комментария из списка заказа (редактирование)
 function openCommentModal(idx) {
   commentEditIdx = idx;
   const it = getTable(currentTable).guests[currentGuest][idx];
@@ -1025,29 +1076,33 @@ function closeCommentModal() {
   commentEditIdx = null;
   pendingDishForComment = null;
 }
-async function saveComment(skip = false) {
-  // Если есть блюдо на добавление — добавляем с комментарием (или без)
+async function saveComment() {
+  const text = document.getElementById('commentInput').value.trim();
+  
   if (pendingDishForComment) {
-    const { dish, category } = pendingDishForComment;
-    const text = skip ? '' : document.getElementById('commentInput').value.trim();
+    const { category, dishName, price } = pendingDishForComment;
     const items = getTable(currentTable).guests[currentGuest];
-    const existing = items.find(i => i.name === dish.name && i.price === dish.price && i.served !== true && canEditItem(i));
-    if (existing && !text) { existing.qty += 1; } // у существующей без комм. увеличиваем кол-во
-    else {
-      items.push({ name: dish.name, price: dish.price, qty: 1, category, addedBy: userName, served: false, comment: text || undefined });
+    // Ищем существующую открытую позицию с таким же комментарием или без него, чтобы увеличить
+    const existing = items.find(i => i.name === dishName && i.price === price && i.served !== true && (i.comment || '') === text && canEditItem(i));
+    
+    if (existing) {
+      existing.qty += 1;
+    } else {
+      items.push({ name: dishName, price: price, qty: 1, category, addedBy: userName, served: false, comment: text || undefined });
     }
+    
     pendingDishForComment = null;
     closeCommentModal();
     saveAll(); renderOrderScreen();
-    showSyncStatus('Добавлено: ' + dish.name);
+    showSyncStatus('Добавлено: ' + dishName);
     return;
   }
-  // Иначе — редактируем существующий
+  
   if (commentEditIdx === null) return;
   const items = getTable(currentTable).guests[currentGuest];
   const it = items[commentEditIdx];
   if (!it) { closeCommentModal(); return; }
-  const text = skip ? '' : document.getElementById('commentInput').value.trim();
+  
   if (text) it.comment = text; else delete it.comment;
   await saveAll(); closeCommentModal(); renderOrderScreen();
 }
@@ -1056,6 +1111,14 @@ async function deleteComment() {
   const items = getTable(currentTable).guests[currentGuest];
   if (items[commentEditIdx]) delete items[commentEditIdx].comment;
   await saveAll(); closeCommentModal(); renderOrderScreen();
+}
+
+// Применение скидки
+function applyDiscount(dish) {
+  const items = getTable(currentTable).guests[currentGuest];
+  if (items.some(it => it.isDiscount)) { alert('Скидка уже применена к этому гостю'); return; }
+  items.push({ name: dish.name, price: 0, qty: 1, isDiscount: dish.isDiscount, addedBy: userName });
+  saveAll(); renderOrderScreen(); closeModal('menuModal');
 }
 
 /* ============================================================
@@ -1185,11 +1248,11 @@ function renderShiftReport() {
   wrap.innerHTML = html;
 }
 function copyAllChecks() {
-  let text = `ФИСКАЛЬНЫЙ ОТЧЁТ ЗА СМЕНУ\nДата: ${new Date().toLocaleString('ru-RU')}\n`;
+  let text = `ФИСКАЛЬНЫЙ ОТЧЕТ ЗА СМЕНУ\nДата: ${new Date().toLocaleString('ru-RU')}\n`;
   text += '='.repeat(40) + '\n\n';
   let total = 0, cash = 0, card = 0, trans = 0;
   shift.forEach((x, i) => {
-    text += `СЧЁТ №${i + 1} · ${tableLabel(x.table)}\nЗакрыт: ${new Date(x.closedAt).toLocaleString('ru-RU')} · ${x.closedBy || ''}\nСпособ: ${x.method || '—'}\n`;
+    text += `СЧЕТ №${i + 1} · ${tableLabel(x.table)}\nЗакрыт: ${new Date(x.closedAt).toLocaleString('ru-RU')} · ${x.closedBy || ''}\nСпособ: ${x.method || '—'}\n`;
     Object.keys(x.guests).forEach(g => {
       text += ` ▸ ${g}\n`;
       let gSum = 0;
